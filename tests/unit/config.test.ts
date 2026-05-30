@@ -237,6 +237,31 @@ describe("loadLspConfig", () => {
     );
   });
 
+  it("infers the runtime command from explicit system install command overrides", async () => {
+    await writeJson(getUserConfigPath(), {
+      servers: {
+        pyright: {
+          install: {
+            type: "system",
+            command: ["~/.local/share/nvim/mason/bin/pyright-langserver", "--stdio"],
+          },
+        },
+      },
+    });
+
+    const result = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.catalog.servers.pyright.install).toEqual({
+      type: "system",
+      command: ["~/.local/share/nvim/mason/bin/pyright-langserver", "--stdio"],
+    });
+    expect(result.catalog.servers.pyright.command).toEqual([
+      "~/.local/share/nvim/mason/bin/pyright-langserver",
+      "--stdio",
+    ]);
+  });
+
   it("allows trusted project config to override installMode and executable fields while keeping catalog key ids authoritative", async () => {
     await trustProject(projectRoot);
     await writeJson(getProjectConfigPath(projectRoot), {

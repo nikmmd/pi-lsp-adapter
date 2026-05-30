@@ -230,7 +230,23 @@ function mergeServerDefinition(
     baseForMerge.install = {};
   }
 
-  return deepMerge(baseForMerge, override);
+  return normalizeServerDefinitionShorthand(deepMerge(baseForMerge, override), override);
+}
+
+function normalizeServerDefinitionShorthand(merged: unknown, override: Record<string, unknown>): unknown {
+  if (!isPlainObject(merged)) return merged;
+
+  if (isPlainObject(merged.install) && merged.install.type === "system") {
+    if (merged.command === undefined && Array.isArray(merged.install.command)) {
+      return { ...merged, command: deepClone(merged.install.command) };
+    }
+
+    if (override.command === undefined && Array.isArray(merged.install.command)) {
+      return { ...merged, command: deepClone(merged.install.command) };
+    }
+  }
+
+  return merged;
 }
 
 function filterUntrustedProjectServerFields(

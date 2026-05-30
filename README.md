@@ -259,12 +259,13 @@ Example: use Mason.nvim's Pyright:
       "install": {
         "type": "system",
         "command": ["~/.local/share/nvim/mason/bin/pyright-langserver", "--stdio"]
-      },
-      "command": ["~/.local/share/nvim/mason/bin/pyright-langserver", "--stdio"]
+      }
     }
   }
 }
 ```
+
+For `type: "system"`, `command` is inferred from `install.command` when omitted.
 
 Example: use a binary already on `PATH`:
 
@@ -274,9 +275,74 @@ Example: use a binary already on `PATH`:
     "gopls": {
       "install": {
         "type": "system",
-        "bin": "gopls"
+        "command": ["gopls"]
+      }
+    }
+  }
+}
+```
+
+## Managed install overrides
+
+Use `install` without `type: "system"` when you want Pi to own the install lifecycle. In `prompt` mode, the server is still missing until you run `/lsp install <serverId>`. The resolved install metadata is then written to `~/.pi/agent/lsp/lsp.lock.json`.
+
+Pin a managed npm server version:
+
+```json
+{
+  "servers": {
+    "pyright": {
+      "install": {
+        "type": "npm",
+        "packages": {
+          "pyright": "1.1.410"
+        },
+        "bin": "pyright-langserver"
+      }
+    }
+  }
+}
+```
+
+Pin a managed GitHub release server:
+
+```json
+{
+  "servers": {
+    "rust-analyzer": {
+      "install": {
+        "type": "github",
+        "repo": "rust-lang/rust-analyzer",
+        "version": "2026-05-25",
+        "asset": "rust-analyzer-{platform}.gz",
+        "bin": "rust-analyzer"
+      }
+    }
+  }
+}
+```
+
+Add a custom GitHub-release server:
+
+```json
+{
+  "servers": {
+    "example-ls": {
+      "displayName": "Example Language Server",
+      "filetypes": ["example"],
+      "rootMarkers": [".git"],
+      "install": {
+        "type": "github",
+        "repo": "example/example-ls",
+        "version": "v1.2.3",
+        "asset": "example-ls-linux-x64.tar.gz",
+        "bin": "example-ls",
+        "stripComponents": 1
       },
-      "command": ["gopls"]
+      "command": ["{installBin}/example-ls", "--stdio"],
+      "settings": {},
+      "initializationOptions": {},
+      "lazy": true
     }
   }
 }
