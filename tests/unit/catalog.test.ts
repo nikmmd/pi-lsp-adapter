@@ -16,6 +16,10 @@ describe("BUILTIN_CATALOG", () => {
 
   it("orders specific root markers before .git", () => {
     expect(BUILTIN_CATALOG.servers.gopls.rootMarkers).toEqual(["go.work", "go.mod", ".git"]);
+    expect(BUILTIN_CATALOG.servers.vtsls.rootMarkers).toEqual(
+      expect.arrayContaining(["package.json", "tsconfig.json", "bun.lock", "bun.lockb"]),
+    );
+    expect(BUILTIN_CATALOG.servers.vtsls.rootMarkers.at(-1)).toBe(".git");
     expect(BUILTIN_CATALOG.servers["rust-analyzer"].rootMarkers.at(-1)).toBe(".git");
   });
 

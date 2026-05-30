@@ -24,7 +24,16 @@ export const BUILTIN_CATALOG: BuiltinCatalog = {
       id: "vtsls",
       displayName: "JavaScript/TypeScript Language Server (VTSLS)",
       filetypes: ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-      rootMarkers: ["package.json", "tsconfig.json", "jsconfig.json", "pnpm-workspace.yaml", "yarn.lock", ".git"],
+      rootMarkers: [
+        "package.json",
+        "tsconfig.json",
+        "jsconfig.json",
+        "pnpm-workspace.yaml",
+        "bun.lock",
+        "bun.lockb",
+        "yarn.lock",
+        ".git",
+      ],
       install: {
         type: "npm",
         packages: {
