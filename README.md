@@ -481,3 +481,7 @@ This only removes Pi-managed install state. It does not remove external system/M
 - First explicit LSP use can still be slower while a server starts, initializes, or installs, especially when warmup is disabled or the server was not installed when the file was read.
 - `lsp_workspace_symbols` searches active clients by default; pass `serverId` to start/query a specific configured server.
 - Pagination result IDs are not persistent and can expire. Re-run the original LSP query if `lsp_more` says the cached result is gone.
+
+## License
+
+[MIT](https://opensource.org/license/MIT) © 2026 pi-lsp-adapter developers
