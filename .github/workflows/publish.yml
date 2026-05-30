@@ -75,6 +75,4 @@ jobs:
         run: npm pack --dry-run
 
       - name: Publish package
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --provenance --tag "${{ steps.release.outputs.dist_tag }}"
+        run: npm publish --access public --tag "${{ steps.release.outputs.dist_tag }}"

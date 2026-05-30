@@ -444,7 +444,7 @@ Run `/reload` in Pi after editing the extension.
 
 Publishing is tag-driven. Use `npm version` to bump `package.json` and `package-lock.json`, create the matching semver tag, then push the commit and tag. The GitHub Actions publish workflow verifies that the tag matches `package.json` before publishing.
 
-Before the first release, configure npm publishing for this repository with either an `NPM_TOKEN` GitHub secret or npm Trusted Publishing.
+npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so no npm token secret is required.
 
 ```bash
 npm version 0.1.0
