@@ -50,7 +50,7 @@ export function getTrustStorePath(): string {
 }
 
 export function getUserConfigPath(): string {
-  return join(homedir(), ".pi", "agents", "lsp.json");
+  return join(homedir(), ".pi", "agent", "lsp.json");
 }
 
 export function getProjectConfigPath(projectRoot: string): string {

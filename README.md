@@ -130,7 +130,7 @@ You can override these definitions or add new server definitions in config.
 Most users only need one file:
 
 ```text
-~/.pi/agents/lsp.json
+~/.pi/agent/lsp.json
 ```
 
 If that file does not exist, the extension behaves as if this config were present:
@@ -147,13 +147,13 @@ If that file does not exist, the extension behaves as if this config were presen
 
 ### Config files and merge order
 
-| Priority | Path                    | Purpose                                                                                                          |
-| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1        | built-in catalog        | Default server definitions for `vtsls`, `pyright`, `gopls`, `rust-analyzer`, `yamlls`, etc.                      |
-| 2        | `~/.pi/agents/lsp.json` | User-global config. Best place for executable, install, PATH, `installMode`, and `warmup`.                       |
-| 3        | `.pi/lsp.json`          | Project-local config. Safe server fields are honored before trust; process-starting fields require `/lsp trust`. |
+| Priority | Path                   | Purpose                                                                                                          |
+| -------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1        | built-in catalog       | Default server definitions for `vtsls`, `pyright`, `gopls`, `rust-analyzer`, `yamlls`, etc.                      |
+| 2        | `~/.pi/agent/lsp.json` | User-global config. Best place for executable, install, PATH, `installMode`, and `warmup`.                       |
+| 3        | `.pi/lsp.json`         | Project-local config. Safe server fields are honored before trust; process-starting fields require `/lsp trust`. |
 
-> Path gotcha: config uses `~/.pi/agents/lsp.json` (`agents` plural). Runtime state uses `~/.pi/agent/lsp/` (`agent` singular).
+> Path gotcha: config is the file `~/.pi/agent/lsp.json`. Runtime state lives under the directory `~/.pi/agent/lsp/`.
 
 ### Runtime paths
 
@@ -253,7 +253,7 @@ You do not need Pi to manage every language server. If you already have servers 
 Prefer global config for executable overrides:
 
 ```text
-~/.pi/agents/lsp.json
+~/.pi/agent/lsp.json
 ```
 
 Example: use Mason.nvim's Pyright:
@@ -481,7 +481,7 @@ This is the quickest way to see the final command, root markers, install state, 
 
 ### Reuse Mason.nvim servers
 
-Configure the server as `type: "system"` in `~/.pi/agents/lsp.json` and point `command` at the Mason binary. Pi will use it but will not manage or uninstall it.
+Configure the server as `type: "system"` in `~/.pi/agent/lsp.json` and point `command` at the Mason binary. Pi will use it but will not manage or uninstall it.
 
 ### Start fresh for one server
 

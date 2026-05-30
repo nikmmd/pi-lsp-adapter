@@ -43,7 +43,7 @@ afterEach(async () => {
 });
 
 describe("config paths", () => {
-  it("uses the managed root under ~/.pi/agent/lsp and the user override path under ~/.pi/agents/lsp.json", () => {
+  it("uses the managed root under ~/.pi/agent/lsp and the user override path under ~/.pi/agent/lsp.json", () => {
     expect(getManagedLspRoot()).toBe(join(tempHome, ".pi", "agent", "lsp"));
     expect(getRegistryDir()).toBe(join(tempHome, ".pi", "agent", "lsp", "registry"));
     expect(getPackagesDir()).toBe(join(tempHome, ".pi", "agent", "lsp", "packages"));
@@ -57,7 +57,7 @@ describe("config paths", () => {
       join(tempHome, ".pi", "agent", "lsp", "pids", "pi-lsp-123_repo_path.json"),
     );
     expect(getTrustStorePath()).toBe(join(tempHome, ".pi", "agent", "lsp", "trust.json"));
-    expect(getUserConfigPath()).toBe(join(tempHome, ".pi", "agents", "lsp.json"));
+    expect(getUserConfigPath()).toBe(join(tempHome, ".pi", "agent", "lsp.json"));
     expect(getProjectConfigPath(projectRoot)).toBe(join(projectRoot, ".pi", "lsp.json"));
   });
 });
