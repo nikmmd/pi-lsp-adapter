@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { createWriteStream, WriteStream } from "node:fs";
 import {
   createMessageConnection,
   StreamMessageReader,
@@ -35,6 +36,7 @@ import {
   type WorkspaceSymbol,
 } from "vscode-languageserver-protocol";
 import { URI } from "vscode-uri";
+import { getLogsDir } from "../config/paths.js";
 import type { JsonObject, JsonValue, ResolvedServerConfig } from "../registry/schema.js";
 import type { LspProcessRegistry } from "./processRegistry.js";
 
@@ -351,9 +353,37 @@ export function defaultSpawner(config: ResolvedServerConfig): ChildProcessWithou
     stdio: ["pipe", "pipe", "pipe"],
     shell: false,
   });
-  child.stderr.on("data", () => undefined);
+  pipeStderrToLogFile(child, config.server.id, child.pid);
   child.on("error", () => undefined);
   return child;
+}
+
+const LSP_STDERR_LOG_MAX_BYTES = 256 * 1024;
+
+function pipeStderrToLogFile(child: ChildProcessWithoutNullStreams, serverId: string, pid: number | undefined): void {
+  const logPath = join(getLogsDir(), `${serverId}-${pid ?? "unknown"}-stderr.log`);
+  let bytes = 0;
+  let closed = false;
+  let stream: WriteStream | undefined;
+
+  const openStream = () => {
+    if (stream) return;
+    stream = createWriteStream(logPath, { flags: "w" });
+  };
+
+  child.stderr.on("data", (chunk: Buffer | string) => {
+    if (closed) return;
+    const size = typeof chunk === "string" ? Buffer.byteLength(chunk) : chunk.length;
+    bytes += size;
+    if (bytes > LSP_STDERR_LOG_MAX_BYTES) return;
+    openStream();
+    stream?.write(chunk);
+  });
+
+  child.on("exit", () => {
+    closed = true;
+    stream?.end();
+  });
 }
 
 export function defaultConnectionFactory(process: LspServerProcess): LspConnection {

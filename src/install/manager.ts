@@ -4,6 +4,7 @@ import { getBinDir } from "../config/paths.js";
 import type { Catalog, InstallMode, InstalledServerMetadata, ServerDefinition } from "../registry/schema.js";
 import { ConfigError } from "../util/errors.js";
 import {
+  getInstallBinName,
   getServerPackageDir,
   installServerBackend,
   type InstallerOptions,
@@ -170,18 +171,7 @@ export function formatInstallCommand(serverId: string, requestedVersion?: string
 }
 
 async function removeManagedBin(server: ServerDefinition): Promise<void> {
+  if (server.install.type === "system") return;
   const binName = getInstallBinName(server);
-  if (!binName || server.install.type === "system") return;
   await rm(join(getBinDir(), binName), { force: true });
-}
-
-function getInstallBinName(server: ServerDefinition): string | undefined {
-  switch (server.install.type) {
-    case "npm":
-    case "go":
-    case "github":
-      return server.install.bin;
-    case "system":
-      return undefined;
-  }
 }

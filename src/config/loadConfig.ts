@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
+import { isNodeError, isPlainObject, isPythonServerId, messageFromError } from "../util/helpers.js";
 import { BUILTIN_CATALOG } from "../registry/builtin.js";
 import { parseServerDefinition } from "../registry/schema.js";
 import type { Catalog, InstallMode, ServerDefinition } from "../registry/schema.js";
@@ -314,10 +315,6 @@ function isDangerousProjectEnvKey(serverId: string, key: string): boolean {
   );
 }
 
-function isPythonServerId(serverId: string): boolean {
-  return serverId === "pyright" || serverId === "basedpyright";
-}
-
 function ignoredProjectServerFieldWarning(
   serverId: string,
   field: string,
@@ -335,14 +332,4 @@ function ignoredProjectServerFieldWarning(
   return `Ignoring trusted-only project override for ${serverId}.${field} from ${sourcePath}; only filetypes, rootMarkers, settings, initializationOptions, env, and cwd are allowed before /lsp trust ${projectRoot}.`;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

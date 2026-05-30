@@ -1,5 +1,6 @@
 import { mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { isNodeError } from "../util/helpers.js";
 import { getTrustStorePath } from "./paths.js";
 
 export interface TrustStore {
@@ -83,6 +84,4 @@ function isTrustStore(value: unknown): value is TrustStore {
   return Array.isArray(trustedProjects) && trustedProjects.every((entry) => typeof entry === "string");
 }
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
+

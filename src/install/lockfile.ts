@@ -13,6 +13,7 @@ import {
 } from "../config/paths.js";
 import { InstalledServerMetadataSchema } from "../registry/schema.js";
 import type { InstalledServerMetadata, InstallerType } from "../registry/schema.js";
+import { isNodeError, isPlainObject, messageFromError } from "../util/helpers.js";
 import { Value } from "typebox/value";
 import { ConfigError } from "../util/errors.js";
 
@@ -155,16 +156,4 @@ function isLockfile(value: unknown): value is LspLockfile {
 
 function isInstalledServerMetadata(value: unknown): value is InstalledServerMetadata {
   return Value.Check(InstalledServerMetadataSchema, value);
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

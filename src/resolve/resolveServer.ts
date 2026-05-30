@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { isPlainObject, normalizeProcessEnv } from "../util/helpers.js";
 import { applyLanguageDefaults } from "./languages.js";
 import type {
   InstalledServerMetadata,
@@ -313,16 +314,4 @@ function isPathLikeField(fieldPath: string): boolean {
   );
 }
 
-function normalizeProcessEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-  const normalized: Record<string, string> = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (typeof value === "string") {
-      normalized[key] = value;
-    }
-  }
-  return normalized;
-}
 
-function isPlainObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

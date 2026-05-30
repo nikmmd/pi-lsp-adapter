@@ -21,14 +21,4 @@ export class MissingBinaryError extends ConfigError {
   }
 }
 
-export class UnsupportedCapabilityError extends ConfigError {
-  constructor(serverId: string, rootDir: string, capability: string) {
-    super(`${serverId} at ${rootDir} does not advertise ${capability}`);
-  }
-}
 
-export class ServerStartupError extends ConfigError {
-  constructor(serverId: string, rootDir: string, reason: string) {
-    super(`${serverId} at ${rootDir} failed to start: ${reason}`);
-  }
-}

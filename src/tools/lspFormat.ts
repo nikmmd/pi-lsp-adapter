@@ -11,6 +11,7 @@ import type {
   WorkspaceSymbol,
 } from "vscode-languageserver-protocol";
 import { URI } from "vscode-uri";
+import { messageFromError as baseMessageFromError } from "../util/helpers.js";
 import type { LspDiagnosticsResult } from "../lsp/client.js";
 import type { LspRuntimeFileResult, LspWorkspaceSymbolsResult } from "../lsp/runtimeManager.js";
 import type { LspResultCache } from "./resultCache.js";
@@ -515,7 +516,7 @@ function uriToFilePath(uri: string): string | undefined {
 }
 
 function messageFromError(error: unknown): string {
-  return conciseExpectedError(error instanceof Error ? error.message : String(error));
+  return conciseExpectedError(baseMessageFromError(error));
 }
 
 function conciseExpectedError(message: string): string {

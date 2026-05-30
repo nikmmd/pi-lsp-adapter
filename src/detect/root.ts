@@ -1,5 +1,5 @@
-import { access } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
+import { pathExists } from "../util/helpers.js";
 
 export interface RootDetectionResult {
   rootDir: string;
@@ -31,11 +31,4 @@ export async function detectRoot(filePath: string, rootMarkers: string[]): Promi
   }
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+

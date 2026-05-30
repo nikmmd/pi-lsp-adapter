@@ -1,7 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { readLockfile } from "../install/lockfile.js";
 import { parseServerVersionSpec } from "../install/version.js";
-import type { LspProcessEntry } from "../lsp/processRegistry.js";
 import type { LspExtensionState } from "../state.js";
 import { setLspStatusLine } from "../statusLine.js";
 import { LspPanel, type LspPanelAction } from "../ui/lspPanel.js";
@@ -228,6 +227,4 @@ function notify(ctx: ExtensionCommandContext, message: string, level: "info" | "
   if (ctx.hasUI) ctx.ui.notify(message, level);
 }
 
-export function countProcessesForServer(processes: LspProcessEntry[], serverId: string): number {
-  return processes.filter((process) => process.serverId === serverId).length;
-}
+

@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { getProcessRegistryPath } from "../config/paths.js";
 import { ConfigError } from "../util/errors.js";
+import { delay, isNodeError, isPlainObject } from "../util/helpers.js";
 
 export interface LspProcessEntry {
   id: string;
@@ -72,9 +73,11 @@ export class LspProcessRegistry {
 
   async unregister(id: string, pid?: number): Promise<void> {
     const pidFile = await this.read();
-    pidFile.processes = pidFile.processes.filter(
-      (entry) => entry.id !== id || (pid !== undefined && entry.pid !== pid),
-    );
+    pidFile.processes = pidFile.processes.filter((entry) => {
+      if (entry.id !== id) return true; // keep entries with different id
+      if (pid === undefined) return false; // remove entries matching by id when no pid provided
+      return entry.pid !== pid; // when pid provided, only remove if pid also matches
+    });
     await this.write(pidFile);
   }
 
@@ -250,17 +253,4 @@ function isProcessEntry(value: unknown): value is LspProcessEntry {
     Number.isInteger(value.ownerPid) &&
     value.ownerPid > 0
   );
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
-function delay(ms: number): Promise<void> {
-  if (ms <= 0) return Promise.resolve();
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }

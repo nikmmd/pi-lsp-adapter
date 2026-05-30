@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { messageFromError } from "./util/helpers.js";
 import { loadLspConfig } from "./config/loadConfig.js";
 import { LspInstallManager } from "./install/manager.js";
 import { ensureManagedLspRoot } from "./install/lockfile.js";
@@ -128,6 +129,4 @@ function createOwnerId(): string {
   return `pi-lsp-${process.pid}-${randomUUID()}`;
 }
 
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+

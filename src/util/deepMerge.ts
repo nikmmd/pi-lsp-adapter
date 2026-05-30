@@ -1,6 +1,4 @@
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isPlainObject } from "./helpers.js";
 
 export function deepClone<T>(value: T): T {
   if (Array.isArray(value)) {

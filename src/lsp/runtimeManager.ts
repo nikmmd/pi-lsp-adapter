@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
+import { delay } from "../util/helpers.js";
 import type {
   Definition,
   DocumentSymbol,
@@ -124,6 +125,7 @@ export class LspRuntimeManager {
   private readonly shutdownGraceMs: number;
   private readonly clients = new Map<string, LspClient>();
   private readonly starting = new Map<string, Promise<ClientTarget>>();
+  private readonly filetypeCache = new Map<string, string>();
 
   constructor(options: LspRuntimeManagerOptions) {
     this.cwd = options.cwd;
@@ -177,6 +179,7 @@ export class LspRuntimeManager {
   }
 
   async shutdown(): Promise<void> {
+    this.filetypeCache.clear();
     await this.shutdownClients(() => true);
   }
 
@@ -322,7 +325,11 @@ export class LspRuntimeManager {
   private async selectServerForFile(filePath: string): Promise<SelectedServer> {
     const resolvedPath = this.resolvePath(filePath);
     const text = await readFile(resolvedPath, "utf8");
-    const filetype = detectFiletype({ path: resolvedPath, content: text });
+    const cached = this.filetypeCache.get(resolvedPath);
+    const filetype = cached ?? detectFiletype({ path: resolvedPath, content: text });
+    if (cached === undefined) {
+      if (filetype) this.filetypeCache.set(resolvedPath, filetype);
+    }
     if (!filetype) {
       throw new LspRuntimeError(`No LSP filetype detected for ${resolvedPath}.`, "no-filetype");
     }
@@ -520,9 +527,4 @@ function validatePosition(selected: SelectedServer, line: number, character: num
 
 function splitLines(text: string): string[] {
   return text.split(/\r\n|\r|\n/u);
-}
-
-function delay(ms: number): Promise<void> {
-  if (ms <= 0) return Promise.resolve();
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 }

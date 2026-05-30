@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { getBinDir, getLogsDir, getPackagesDir } from "../config/paths.js";
+import { messageFromError, normalizeProcessEnv } from "../util/helpers.js";
 import type {
   GithubInstallSpec,
   GoInstallSpec,
@@ -152,7 +153,7 @@ function buildSystemFallbackInstall(server: ServerDefinition): SystemInstallSpec
   return { type: "system", command: [bin, ...systemFallbackArgs(server)] };
 }
 
-function getInstallBinName(server: ServerDefinition): string {
+export function getInstallBinName(server: ServerDefinition): string {
   switch (server.install.type) {
     case "npm":
     case "go":
@@ -502,14 +503,6 @@ export async function defaultCommandRunner(invocation: CommandInvocation): Promi
   });
 }
 
-function normalizeProcessEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-  const normalized: Record<string, string> = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (typeof value === "string") normalized[key] = value;
-  }
-  return normalized;
-}
-
 function formatInstallLog(lines: string[]): string {
   return `${lines.join("\n")}\n`;
 }
@@ -517,8 +510,4 @@ function formatInstallLog(lines: string[]): string {
 function tail(value: string): string {
   const lines = value.trim().split(/\r?\n/u);
   return lines.slice(-10).join("\n");
-}
-
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

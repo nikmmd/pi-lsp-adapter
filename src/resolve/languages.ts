@@ -1,9 +1,9 @@
-import { access } from "node:fs/promises";
 import { delimiter, join, resolve } from "node:path";
 import { getWorkspacesDir } from "../config/paths.js";
 import type { JsonObject, ServerDefinition } from "../registry/schema.js";
 import { deepClone } from "../util/deepMerge.js";
 import { hashPath } from "../util/hash.js";
+import { isPythonServerId, pathExists } from "../util/helpers.js";
 
 export interface LanguageDefaultsInput {
   server: ServerDefinition;
@@ -65,7 +65,7 @@ async function selectPythonVirtualEnv(rootDir: string, env: Record<string, strin
 }
 
 function isPythonServer(server: ServerDefinition): boolean {
-  return server.id === "pyright" || server.id === "basedpyright" || server.filetypes.includes("python");
+  return isPythonServerId(server.id) || server.filetypes.includes("python");
 }
 
 function getVirtualEnvBinDir(venvDir: string): string {
@@ -95,11 +95,4 @@ function hasPythonInterpreterSetting(settings: JsonObject): boolean {
   );
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+
