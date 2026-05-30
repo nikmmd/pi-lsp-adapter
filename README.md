@@ -442,7 +442,7 @@ Run `/reload` in Pi after editing the extension.
 
 ## Release
 
-Publishing is tag-driven, but do not create release tags by hand. Use the release helper so `package.json` and `package-lock.json` are bumped before the matching semver tag is created. The GitHub Actions publish workflow is intentionally read-only: it verifies the tag against both version files and fails instead of patching tagged source during publish.
+Publishing is CI-driven. Do not create release tags by hand. Use the release helper to bump `package.json` and `package-lock.json` in a normal commit; after that commit lands on `main` and CI passes, `.github/workflows/publish.yml` creates the matching semver tag and publishes to npm.
 
 npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so no npm token secret is required. The npm package must have a Trusted Publisher configured for `nikmmd/pi-lsp-adapter` and workflow filename `publish.yml`.
 
@@ -450,9 +450,9 @@ npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so n
 npm run release -- 0.1.2 --push
 ```
 
-Omit `--push` to create the release commit and tag locally, then push with the command printed by the helper.
+Omit `--push` to create the release commit locally, then push with the command printed by the helper. Non-release pushes to `main` also trigger the publish workflow, but it exits without publishing when the current `package.json` version already exists on npm.
 
-Stable tags such as `v0.1.0` publish with the npm `latest` dist-tag. Prerelease tags such as `v0.2.0-beta.1` publish with the npm `next` dist-tag.
+Stable versions such as `0.1.2` publish with the npm `latest` dist-tag. Prerelease versions such as `0.2.0-beta.1` publish with the npm `next` dist-tag.
 
 ## Troubleshooting
 

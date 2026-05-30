@@ -8,8 +8,9 @@ usage() {
   cat <<'USAGE'
 Usage: npm run release -- <version> [--push]
 
-Creates a release commit and annotated semver tag after updating package.json
-and package-lock.json with npm version. Use --push to push the commit and tag.
+Prepares a release commit by updating package.json and package-lock.json.
+After the commit lands on main and CI passes, the Publish workflow creates the
+matching annotated tag and publishes the package to npm.
 
 Examples:
   npm run release -- 0.1.2
@@ -53,13 +54,13 @@ fi
 
 current_branch="$(git branch --show-current)"
 if [[ "$current_branch" != "$RELEASE_BRANCH" ]]; then
-  echo "Releases must be created from $RELEASE_BRANCH; current branch is ${current_branch:-detached HEAD}." >&2
+  echo "Releases must be prepared from $RELEASE_BRANCH; current branch is ${current_branch:-detached HEAD}." >&2
   echo "Set RELEASE_BRANCH=<branch> if this repository intentionally releases from a different branch." >&2
   exit 1
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Working tree must be clean before creating a release." >&2
+  echo "Working tree must be clean before preparing a release." >&2
   git status --short >&2
   exit 1
 fi
@@ -87,6 +88,17 @@ case "$remote_tag_status" in
     ;;
 esac
 
+package_name="$(node -p "require('./package.json').name")"
+set +e
+published_version="$(npm view "$package_name@$version" version 2>/dev/null)"
+npm_view_status=$?
+set -e
+
+if [[ "$npm_view_status" -eq 0 && "$published_version" == "$version" ]]; then
+  echo "$package_name@$version is already published. Choose a new version." >&2
+  exit 1
+fi
+
 npm run format:check
 npm run lint
 npm run typecheck
@@ -107,12 +119,13 @@ if [[ "$package_version" != "$version" || "$lockfile_version" != "$version" || "
 fi
 
 git add package.json package-lock.json
-git commit -m "chore: release $tag" -m "Update package metadata for release $tag."
-git tag -a "$tag" -m "$tag"
+git commit -m "chore: release $tag" -m "Update package metadata for release $tag. CI will create the tag and publish after checks pass."
 
 if [[ "$push_after" == true ]]; then
-  git push origin "$current_branch" --follow-tags
+  git push origin "$current_branch"
+  echo "Release commit pushed. CI will create $tag and publish $package_name@$version after checks pass."
 else
-  echo "Created release commit and tag $tag."
-  echo "Next: git push origin $current_branch --follow-tags"
+  echo "Created release commit for $tag."
+  echo "Next: git push origin $current_branch"
+  echo "CI will create $tag and publish $package_name@$version after checks pass."
 fi

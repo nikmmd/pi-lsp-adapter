@@ -1,22 +1,50 @@
 name: Publish
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to publish, defaults to main
+        required: false
+        default: main
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   npm:
     name: Publish to npm
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
 
     steps:
+      - name: Resolve publish ref
+        id: publish_ref
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "ref=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.publish_ref.outputs.ref }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -31,69 +59,121 @@ jobs:
           node --version
           npm --version
 
-      - name: Derive release version
+      - name: Read release metadata
         id: release
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          semver_regex='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 
-          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-            echo "::error::Release tags must be semver tags like v0.1.0 or v0.1.0-beta.1"
-            exit 1
-          fi
-
-          dist_tag="latest"
-          if [[ "$version" == *-* ]]; then
-            dist_tag="next"
-          fi
-
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
-
-      - name: Verify package and lockfile versions match tag
-        env:
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        shell: bash
-        run: |
+          package_name=$(node -p "require('./package.json').name")
           package_version=$(node -p "require('./package.json').version")
           lockfile_version=$(node -p "require('./package-lock.json').version")
           lockfile_root_version=$(node -p "require('./package-lock.json').packages[''].version")
 
-          failed=false
-          if [[ "$package_version" != "$RELEASE_VERSION" ]]; then
-            echo "::error::package.json version ($package_version) does not match release tag ($RELEASE_VERSION)"
-            failed=true
+          if [[ ! "$package_version" =~ $semver_regex ]]; then
+            echo "::error::package.json version must be semver; got $package_version"
+            exit 1
           fi
-          if [[ "$lockfile_version" != "$RELEASE_VERSION" ]]; then
-            echo "::error::package-lock.json version ($lockfile_version) does not match release tag ($RELEASE_VERSION)"
-            failed=true
+          if [[ "$lockfile_version" != "$package_version" ]]; then
+            echo "::error::package-lock.json version ($lockfile_version) does not match package.json ($package_version)"
+            exit 1
           fi
-          if [[ "$lockfile_root_version" != "$RELEASE_VERSION" ]]; then
-            echo "::error::package-lock.json root package version ($lockfile_root_version) does not match release tag ($RELEASE_VERSION)"
-            failed=true
-          fi
-          if [[ "$failed" == true ]]; then
-            echo "::error::Create releases with 'npm run release -- $RELEASE_VERSION --push' so version files are updated before the tag is pushed."
+          if [[ "$lockfile_root_version" != "$package_version" ]]; then
+            echo "::error::package-lock.json root package version ($lockfile_root_version) does not match package.json ($package_version)"
             exit 1
           fi
 
+          dist_tag="latest"
+          if [[ "$package_version" == *-* ]]; then
+            dist_tag="next"
+          fi
+
+          echo "package_name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$package_version" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm publication state
+        id: npm_state
+        shell: bash
+        run: |
+          package_name="${{ steps.release.outputs.package_name }}"
+          version="${{ steps.release.outputs.version }}"
+
+          set +e
+          published_version=$(npm view "$package_name@$version" version 2>/tmp/npm-view.err)
+          status=$?
+          set -e
+
+          if [[ "$status" -eq 0 && "$published_version" == "$version" ]]; then
+            echo "$package_name@$version is already published; skipping tag and publish."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$package_name@$version is not published yet."
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm ci
 
       - name: Check formatting
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm run format:check
 
       - name: Lint
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm run lint
 
       - name: Typecheck
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm run typecheck
 
       - name: Test
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm test
 
+      - name: Check release tag state
+        id: tag_state
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
+        shell: bash
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          head_sha=$(git rev-parse HEAD)
+          remote_commit=$(git ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')
+
+          if [[ -z "$remote_commit" ]]; then
+            remote_commit=$(git ls-remote --tags origin "refs/tags/$tag" | awk '{print $1}')
+          fi
+
+          if [[ -n "$remote_commit" && "$remote_commit" != "$head_sha" ]]; then
+            echo "::error::Remote tag $tag points to $remote_commit, but this publish is for $head_sha. Bump package.json to a new version or move the tag intentionally."
+            exit 1
+          fi
+
+          if [[ -n "$remote_commit" ]]; then
+            echo "Remote tag $tag already points at this commit."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Remote tag $tag does not exist yet."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release tag
+        if: ${{ steps.npm_state.outputs.published != 'true' && steps.tag_state.outputs.exists != 'true' }}
+        shell: bash
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "$tag"
+          git push origin "refs/tags/$tag"
+
       - name: Check package contents
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm pack --dry-run
 
       - name: Publish package
+        if: ${{ steps.npm_state.outputs.published != 'true' }}
         run: npm publish --access public --tag "${{ steps.release.outputs.dist_tag }}"
