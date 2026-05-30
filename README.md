@@ -444,7 +444,7 @@ Run `/reload` in Pi after editing the extension.
 
 Publishing is tag-driven, but do not create release tags by hand. Use the release helper so `package.json` and `package-lock.json` are bumped before the matching semver tag is created. The GitHub Actions publish workflow is intentionally read-only: it verifies the tag against both version files and fails instead of patching tagged source during publish.
 
-npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so no npm token secret is required.
+npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so no npm token secret is required. The npm package must have a Trusted Publisher configured for `nikmmd/pi-lsp-adapter` and workflow filename `publish.yml`.
 
 ```bash
 npm run release -- 0.1.2 --push
