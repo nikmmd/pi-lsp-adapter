@@ -16,13 +16,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Derive release version
         id: release
@@ -58,8 +59,17 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Set package version from tag
-        run: npm version "${{ steps.release.outputs.version }}" --no-git-tag-version --allow-same-version
+      - name: Verify package version matches tag
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+
+          if [[ "$package_version" != "$RELEASE_VERSION" ]]; then
+            echo "::error::package.json version ($package_version) does not match release tag ($RELEASE_VERSION)"
+            exit 1
+          fi
 
       - name: Check package contents
         run: npm pack --dry-run
@@ -67,9 +77,4 @@ jobs:
       - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
-            npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
-          fi
-
-          npm publish --provenance --tag "${{ steps.release.outputs.dist_tag }}"
+        run: npm publish --access public --provenance --tag "${{ steps.release.outputs.dist_tag }}"
