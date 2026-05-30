@@ -99,7 +99,7 @@ function fakeState(
         servers: {
           vtsls: {
             id: "vtsls",
-            displayName: "VTSLS",
+            displayName: "JavaScript/TypeScript Language Server (VTSLS)",
             filetypes: ["typescript"],
             rootMarkers: ["package.json"],
             install: { type: "system", command: ["fake-ls"] },
