@@ -33,8 +33,16 @@ export function getWorkspacesDir(): string {
   return join(getManagedLspRoot(), "workspaces");
 }
 
-export function getProcessRegistryPath(): string {
-  return join(getManagedLspRoot(), "lsp.pid.json");
+export function getProcessRegistryDir(): string {
+  return join(getManagedLspRoot(), "pids");
+}
+
+export function getProcessRegistryPath(ownerId: string): string {
+  return join(getProcessRegistryDir(), `${safePathSegment(ownerId)}.json`);
+}
+
+function safePathSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/gu, "_");
 }
 
 export function getTrustStorePath(): string {

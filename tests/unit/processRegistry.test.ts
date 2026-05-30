@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LspProcessRegistry, type LspProcessEntry, type ProcessProbe } from "../../src/lsp/processRegistry.js";
 
 let tempDir: string;
@@ -13,11 +13,12 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await rm(tempDir, { recursive: true, force: true });
 });
 
 describe("LspProcessRegistry", () => {
-  it("registers entries in lsp.pid.json with the current owner", async () => {
+  it("registers entries in the session pid file with the current owner", async () => {
     const registry = new LspProcessRegistry({ path: registryPath, ownerId: "owner-a", probe: fakeProbe() });
 
     await registry.register(entry({ id: "pyright:/repo", ownerId: undefined, ownerPid: undefined }));
@@ -26,6 +27,19 @@ describe("LspProcessRegistry", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ id: "pyright:/repo", ownerId: "owner-a", ownerPid: process.pid });
     await expect(readFile(registryPath, "utf8")).resolves.toContain("pyright:/repo");
+  });
+
+  it("treats an empty or invalid pid file as empty runtime state", async () => {
+    const registry = new LspProcessRegistry({ path: registryPath, ownerId: "owner-a", probe: fakeProbe() });
+
+    await writeFile(registryPath, "", "utf8");
+    await expect(registry.list()).resolves.toEqual([]);
+
+    await writeFile(registryPath, "{not-json", "utf8");
+    await expect(registry.list()).resolves.toEqual([]);
+
+    await writeFile(registryPath, JSON.stringify({ processes: "invalid" }), "utf8");
+    await expect(registry.list()).resolves.toEqual([]);
   });
 
   it("terminates stale entries whose owner process is gone and keeps live owners", async () => {
@@ -87,6 +101,21 @@ describe("LspProcessRegistry", () => {
       expect.objectContaining({ id: "vtsls:/repo", pid: 10, ownerId: "owner-a" }),
       expect.objectContaining({ id: "vtsls:/repo", pid: 20, ownerId: "owner-b" }),
     ]);
+  });
+
+  it("serializes concurrent unregister writes during shutdown", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1780111601295);
+    const registry = new LspProcessRegistry({ path: registryPath, ownerId: "owner-a", probe: fakeProbe() });
+    const entries = Array.from({ length: 8 }, (_value, index) =>
+      entry({ id: `vtsls:/repo/${index}`, pid: 100 + index }),
+    );
+    for (const processEntry of entries) {
+      await registry.register(processEntry);
+    }
+
+    await Promise.all(entries.map((processEntry) => registry.unregister(processEntry.id, processEntry.pid)));
+
+    await expect(registry.list()).resolves.toEqual([]);
   });
 });
 

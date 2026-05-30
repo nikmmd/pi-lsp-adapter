@@ -1,7 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { getProcessRegistryPath } from "../config/paths.js";
-import { ConfigError } from "../util/errors.js";
 import { delay, isNodeError, isPlainObject } from "../util/helpers.js";
 
 export interface LspProcessEntry {
@@ -28,6 +28,7 @@ export interface ProcessProbe {
 
 export interface LspProcessRegistryOptions {
   path?: string;
+  dir?: string;
   ownerId: string;
   probe?: ProcessProbe;
   terminateGraceMs?: number;
@@ -41,48 +42,55 @@ export interface CleanupResult {
 
 export class LspProcessRegistry {
   private readonly path: string;
+  private readonly dir: string;
   private readonly ownerId: string;
   private readonly probe: ProcessProbe;
   private readonly terminateGraceMs: number;
+  private mutationQueue = Promise.resolve();
 
   constructor(options: LspProcessRegistryOptions) {
-    this.path = options.path ?? getProcessRegistryPath();
     this.ownerId = options.ownerId;
+    this.path = options.path ?? getProcessRegistryPath(options.ownerId);
+    this.dir = options.dir ?? dirname(this.path);
     this.probe = options.probe ?? nodeProcessProbe;
     this.terminateGraceMs = options.terminateGraceMs ?? 1500;
   }
 
   async list(): Promise<LspProcessEntry[]> {
-    return (await this.read()).processes;
+    return this.readAllEntries();
   }
 
   async register(
     entry: Omit<LspProcessEntry, "ownerId" | "ownerPid" | "startedAt"> &
       Partial<Pick<LspProcessEntry, "ownerId" | "ownerPid" | "startedAt">>,
   ): Promise<void> {
-    const pidFile = await this.read();
-    const nextEntry: LspProcessEntry = {
-      ...entry,
-      ownerId: entry.ownerId ?? this.ownerId,
-      ownerPid: entry.ownerPid ?? process.pid,
-      startedAt: entry.startedAt ?? new Date().toISOString(),
-    };
-    pidFile.processes = [...pidFile.processes.filter((item) => !isSameOwnerSlot(item, nextEntry)), nextEntry];
-    await this.write(pidFile);
+    await this.withMutation(async () => {
+      const pidFile = await this.readOwnerFile();
+      const nextEntry: LspProcessEntry = {
+        ...entry,
+        ownerId: entry.ownerId ?? this.ownerId,
+        ownerPid: entry.ownerPid ?? process.pid,
+        startedAt: entry.startedAt ?? new Date().toISOString(),
+      };
+      pidFile.processes = [...pidFile.processes.filter((item) => !isSameOwnerSlot(item, nextEntry)), nextEntry];
+      await this.writeOwnerFile(pidFile);
+    });
   }
 
   async unregister(id: string, pid?: number): Promise<void> {
-    const pidFile = await this.read();
-    pidFile.processes = pidFile.processes.filter((entry) => {
-      if (entry.id !== id) return true; // keep entries with different id
-      if (pid === undefined) return false; // remove entries matching by id when no pid provided
-      return entry.pid !== pid; // when pid provided, only remove if pid also matches
+    await this.withMutation(async () => {
+      const pidFile = await this.readOwnerFile();
+      pidFile.processes = pidFile.processes.filter((entry) => {
+        if (entry.id !== id) return true;
+        if (pid === undefined) return false;
+        return entry.pid !== pid;
+      });
+      await this.writeOwnerFile(pidFile);
     });
-    await this.write(pidFile);
   }
 
   async cleanupStaleProcesses(): Promise<CleanupResult> {
-    const entries = await this.list();
+    const entries = await this.readAllEntries();
     const result: CleanupResult = { terminated: [], removed: [], kept: [] };
 
     for (const entry of entries) {
@@ -105,7 +113,7 @@ export class LspProcessRegistry {
       result.terminated.push(entry);
     }
 
-    await this.write({ processes: result.kept });
+    await this.rewriteAllEntries(result.kept);
     return result;
   }
 
@@ -114,7 +122,7 @@ export class LspProcessRegistry {
   }
 
   async terminateProcesses(predicate: (entry: LspProcessEntry) => boolean = () => true): Promise<CleanupResult> {
-    const entries = await this.list();
+    const entries = await this.readAllEntries();
     const result: CleanupResult = { terminated: [], removed: [], kept: [] };
 
     for (const entry of entries) {
@@ -137,7 +145,7 @@ export class LspProcessRegistry {
       result.terminated.push(entry);
     }
 
-    await this.write({ processes: result.kept });
+    await this.rewriteAllEntries(result.kept);
     return result;
   }
 
@@ -153,30 +161,101 @@ export class LspProcessRegistry {
     }
   }
 
-  private async read(): Promise<LspPidFile> {
+  private async withMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.mutationQueue.catch(() => undefined).then(operation);
+    this.mutationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async readOwnerFile(): Promise<LspPidFile> {
+    return this.readFile(this.path);
+  }
+
+  private async readAllEntries(): Promise<LspProcessEntry[]> {
+    const files = await this.registryFiles();
+    const entries: LspProcessEntry[] = [];
+    for (const file of files) {
+      entries.push(...(await this.readFile(file)).processes);
+    }
+    return normalizePidFile({ processes: entries }).processes;
+  }
+
+  private async registryFiles(): Promise<string[]> {
+    const files = new Set<string>();
+    files.add(this.path);
+
     try {
-      const raw = await readFile(this.path, "utf8");
-      const parsed: unknown = JSON.parse(raw);
-      if (!isPidFile(parsed)) {
-        throw new ConfigError(`Invalid LSP pid file at ${this.path}: expected { processes: [...] }.`);
+      for (const entry of await readdir(this.dir, { withFileTypes: true })) {
+        if (entry.isFile() && entry.name.endsWith(".json")) {
+          files.add(join(this.dir, entry.name));
+        }
       }
+    } catch (error) {
+      if (!isNodeError(error) || error.code !== "ENOENT") throw error;
+    }
+
+    return [...files].sort();
+  }
+
+  private async rewriteAllEntries(entries: LspProcessEntry[]): Promise<void> {
+    const grouped = new Map<string, LspProcessEntry[]>();
+    for (const entry of entries) {
+      const filePath = this.pathForOwner(entry.ownerId);
+      grouped.set(filePath, [...(grouped.get(filePath) ?? []), entry]);
+    }
+
+    for (const filePath of await this.registryFiles()) {
+      await this.writeFile(filePath, { processes: grouped.get(filePath) ?? [] });
+      grouped.delete(filePath);
+    }
+
+    for (const [filePath, processes] of grouped) {
+      await this.writeFile(filePath, { processes });
+    }
+  }
+
+  private pathForOwner(ownerId: string): string {
+    if (ownerId === this.ownerId) return this.path;
+    return join(this.dir, `${safePathSegment(ownerId)}.json`);
+  }
+
+  private async readFile(path: string): Promise<LspPidFile> {
+    try {
+      const raw = await readFile(path, "utf8");
+      if (raw.trim() === "") return { processes: [] };
+
+      const parsed: unknown = JSON.parse(raw);
+      if (!isPidFile(parsed)) return { processes: [] };
       return { processes: parsed.processes };
     } catch (error) {
       if (isNodeError(error) && error.code === "ENOENT") {
         return { processes: [] };
       }
       if (error instanceof SyntaxError) {
-        throw new ConfigError(`Invalid LSP pid file at ${this.path}: ${error.message}`);
+        return { processes: [] };
       }
       throw error;
     }
   }
 
-  private async write(pidFile: LspPidFile): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const tempPath = `${this.path}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tempPath, `${JSON.stringify(normalizePidFile(pidFile), null, 2)}\n`, "utf8");
-    await rename(tempPath, this.path);
+  private async writeOwnerFile(pidFile: LspPidFile): Promise<void> {
+    await this.writeFile(this.path, pidFile);
+  }
+
+  private async writeFile(path: string, pidFile: LspPidFile): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    const normalized = normalizePidFile(pidFile);
+    if (normalized.processes.length === 0) {
+      await rm(path, { force: true });
+      return;
+    }
+
+    const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(tempPath, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+    await rename(tempPath, path);
   }
 }
 
@@ -221,6 +300,10 @@ function normalizePidFile(pidFile: LspPidFile): LspPidFile {
         left.id.localeCompare(right.id) || left.ownerId.localeCompare(right.ownerId) || left.pid - right.pid,
     ),
   };
+}
+
+function safePathSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]/gu, "_");
 }
 
 function isSameOwnerSlot(

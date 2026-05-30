@@ -10,6 +10,7 @@ import {
   getLogsDir,
   getManagedLspRoot,
   getPackagesDir,
+  getProcessRegistryDir,
   getProcessRegistryPath,
   getProjectConfigPath,
   getRegistryDir,
@@ -51,7 +52,10 @@ describe("config paths", () => {
     expect(getLogsDir()).toBe(join(tempHome, ".pi", "agent", "lsp", "logs"));
     expect(getLockfilePath()).toBe(join(tempHome, ".pi", "agent", "lsp", "lsp.lock.json"));
     expect(getWorkspacesDir()).toBe(join(tempHome, ".pi", "agent", "lsp", "workspaces"));
-    expect(getProcessRegistryPath()).toBe(join(tempHome, ".pi", "agent", "lsp", "lsp.pid.json"));
+    expect(getProcessRegistryDir()).toBe(join(tempHome, ".pi", "agent", "lsp", "pids"));
+    expect(getProcessRegistryPath("pi-lsp-123:repo/path")).toBe(
+      join(tempHome, ".pi", "agent", "lsp", "pids", "pi-lsp-123_repo_path.json"),
+    );
     expect(getTrustStorePath()).toBe(join(tempHome, ".pi", "agent", "lsp", "trust.json"));
     expect(getUserConfigPath()).toBe(join(tempHome, ".pi", "agents", "lsp.json"));
     expect(getProjectConfigPath(projectRoot)).toBe(join(projectRoot, ".pi", "lsp.json"));

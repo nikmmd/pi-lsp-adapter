@@ -159,7 +159,7 @@ Do not edit these by hand unless you are debugging or cleaning up state:
 | `~/.pi/agent/lsp/bin/`          | Pi-managed executable links                                |
 | `~/.pi/agent/lsp/lsp.lock.json` | Resolved managed install metadata                          |
 | `~/.pi/agent/lsp/logs/`         | Language-server logs                                       |
-| `~/.pi/agent/lsp/lsp.pid.json`  | Process registry used for lifecycle cleanup                |
+| `~/.pi/agent/lsp/pids/`         | Per-session process registries used for lifecycle cleanup  |
 | `~/.pi/agent/lsp/workspaces/`   | Per-server workspaces, for example JDT LS data directories |
 | `~/.pi/agent/lsp/cache/`        | Runtime caches owned by the extension                      |
 

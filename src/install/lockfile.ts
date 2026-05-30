@@ -7,7 +7,7 @@ import {
   getLogsDir,
   getManagedLspRoot,
   getPackagesDir,
-  getProcessRegistryPath,
+  getProcessRegistryDir,
   getRegistryDir,
   getWorkspacesDir,
 } from "../config/paths.js";
@@ -44,7 +44,7 @@ export async function ensureManagedLspRoot(): Promise<void> {
     mkdir(getCacheDir(), { recursive: true }),
     mkdir(getLogsDir(), { recursive: true }),
     mkdir(getWorkspacesDir(), { recursive: true }),
-    mkdir(dirname(getProcessRegistryPath()), { recursive: true }),
+    mkdir(getProcessRegistryDir(), { recursive: true }),
   ]);
 }
 
