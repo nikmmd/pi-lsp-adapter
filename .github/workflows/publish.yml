@@ -44,6 +44,33 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
 
+      - name: Verify package and lockfile versions match tag
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          lockfile_version=$(node -p "require('./package-lock.json').version")
+          lockfile_root_version=$(node -p "require('./package-lock.json').packages[''].version")
+
+          failed=false
+          if [[ "$package_version" != "$RELEASE_VERSION" ]]; then
+            echo "::error::package.json version ($package_version) does not match release tag ($RELEASE_VERSION)"
+            failed=true
+          fi
+          if [[ "$lockfile_version" != "$RELEASE_VERSION" ]]; then
+            echo "::error::package-lock.json version ($lockfile_version) does not match release tag ($RELEASE_VERSION)"
+            failed=true
+          fi
+          if [[ "$lockfile_root_version" != "$RELEASE_VERSION" ]]; then
+            echo "::error::package-lock.json root package version ($lockfile_root_version) does not match release tag ($RELEASE_VERSION)"
+            failed=true
+          fi
+          if [[ "$failed" == true ]]; then
+            echo "::error::Create releases with 'npm run release -- $RELEASE_VERSION --push' so version files are updated before the tag is pushed."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 
@@ -58,18 +85,6 @@ jobs:
 
       - name: Test
         run: npm test
-
-      - name: Verify package version matches tag
-        env:
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        shell: bash
-        run: |
-          package_version=$(node -p "require('./package.json').version")
-
-          if [[ "$package_version" != "$RELEASE_VERSION" ]]; then
-            echo "::error::package.json version ($package_version) does not match release tag ($RELEASE_VERSION)"
-            exit 1
-          fi
 
       - name: Check package contents
         run: npm pack --dry-run

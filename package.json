@@ -38,7 +38,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "release": "bash scripts/release.sh"
   },
   "pi": {
     "extensions": [

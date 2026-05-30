@@ -442,14 +442,15 @@ Run `/reload` in Pi after editing the extension.
 
 ## Release
 
-Publishing is tag-driven. Use `npm version` to bump `package.json` and `package-lock.json`, create the matching semver tag, then push the commit and tag. The GitHub Actions publish workflow verifies that the tag matches `package.json` before publishing.
+Publishing is tag-driven, but do not create release tags by hand. Use the release helper so `package.json` and `package-lock.json` are bumped before the matching semver tag is created. The GitHub Actions publish workflow is intentionally read-only: it verifies the tag against both version files and fails instead of patching tagged source during publish.
 
 npm publishing uses Trusted Publishing for `.github/workflows/publish.yml`, so no npm token secret is required.
 
 ```bash
-npm version 0.1.0
-git push origin main --follow-tags
+npm run release -- 0.1.2 --push
 ```
+
+Omit `--push` to create the release commit and tag locally, then push with the command printed by the helper.
 
 Stable tags such as `v0.1.0` publish with the npm `latest` dist-tag. Prerelease tags such as `v0.2.0-beta.1` publish with the npm `next` dist-tag.
 
