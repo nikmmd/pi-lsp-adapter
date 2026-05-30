@@ -1,6 +1,6 @@
 {
   "name": "pi-lsp-adapter",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi extension that gives coding agents Language Server Protocol tools for diagnostics, hover, definitions, references, and symbol search",
   "author": "Nikmmd",
   "license": "MIT",
@@ -38,8 +38,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "release": "bash scripts/release.sh"
+    "format:check": "prettier --check ."
   },
   "pi": {
     "extensions": [
