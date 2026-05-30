@@ -1,8 +1,8 @@
-# pi-lsp-extension
+# pi-lsp-adapter
 
 Language-server intelligence for [Pi](https://github.com/earendil-works/pi) agents: diagnostics, hover/type info, definitions, references, and symbol search on demand.
 
-`pi-lsp-extension` gives Pi a small set of read-only LSP tools without turning startup into an IDE boot. Language servers are lazy at session startup, installed servers can be warmed in the background when Pi reads source files, managed installs are isolated under Pi's runtime directory, and large LSP responses are paginated through a short-lived cache so they do not flood the context window.
+`pi-lsp-adapter` gives Pi a small set of read-only LSP tools without turning startup into an IDE boot. Language servers are lazy at session startup, installed servers can be warmed in the background when Pi reads source files, managed installs are isolated under Pi's runtime directory, and large LSP responses are paginated through a short-lived cache so they do not flood the context window.
 
 ## Why this exists
 
@@ -20,7 +20,7 @@ LSP already answers those questions. This extension makes those answers availabl
 Install from git:
 
 ```bash
-pi install git:github.com/nikmmd/pi-lsp-extension
+pi install git:github.com/nikmmd/pi-lsp-adapter
 ```
 
 Restart Pi after installation, then check the extension:
@@ -32,8 +32,8 @@ Restart Pi after installation, then check the extension:
 For local development from a checkout:
 
 ```bash
-git clone https://github.com/nikmmd/pi-lsp-extension.git
-cd pi-lsp-extension
+git clone https://github.com/nikmmd/pi-lsp-adapter.git
+cd pi-lsp-adapter
 npm install
 pi -e "$PWD"
 ```
@@ -242,7 +242,7 @@ Project config is intentionally conservative. In untrusted projects, executable 
 
 ## Using existing LSP binaries
 
-You do not need Pi to manage every language server. If you already have servers installed through Mason.nvim, your distro, Nix, mise/asdf, or another tool, point `pi-lsp-extension` at those binaries with global config.
+You do not need Pi to manage every language server. If you already have servers installed through Mason.nvim, your distro, Nix, mise/asdf, or another tool, point `pi-lsp-adapter` at those binaries with global config.
 
 Prefer global config for executable overrides:
 
@@ -428,7 +428,7 @@ For local development with Pi:
 
 ```bash
 mkdir -p ~/.pi/agent/extensions
-ln -sfnT "$PWD" ~/.pi/agent/extensions/pi-lsp-extension
+ln -sfnT "$PWD" ~/.pi/agent/extensions/pi-lsp-adapter
 pi
 ```
 

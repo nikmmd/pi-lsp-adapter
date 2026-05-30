@@ -1,5 +1,5 @@
 {
-  "name": "pi-lsp-extension",
+  "name": "pi-lsp-adapter",
   "version": "0.0.1",
   "description": "Pi extension that gives coding agents Language Server Protocol tools for diagnostics, hover, definitions, references, and symbol search",
   "author": "Nikmmd",
@@ -7,11 +7,11 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nikmmd/pi-lsp-extension.git"
+    "url": "git+https://github.com/nikmmd/pi-lsp-adapter.git"
   },
-  "homepage": "https://github.com/nikmmd/pi-lsp-extension#readme",
+  "homepage": "https://github.com/nikmmd/pi-lsp-adapter#readme",
   "bugs": {
-    "url": "https://github.com/nikmmd/pi-lsp-extension/issues"
+    "url": "https://github.com/nikmmd/pi-lsp-adapter/issues"
   },
   "keywords": [
     "pi-package",
