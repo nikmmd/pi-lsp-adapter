@@ -94,5 +94,3 @@ function hasPythonInterpreterSetting(settings: JsonObject): boolean {
     typeof (python as Record<string, unknown>).defaultInterpreterPath === "string"
   );
 }
-
-

@@ -2,7 +2,7 @@
 
 Language-server intelligence for [Pi](https://github.com/earendil-works/pi-coding-agent) agents: diagnostics, hover/type info, definitions, references, and symbol search on demand.
 
-`pi-lsp-extension` gives Pi a small set of read-only LSP tools without turning startup into an IDE boot. Language servers are lazy, managed installs are isolated under Pi's runtime directory, and large LSP responses are paginated through a short-lived cache so they do not flood the context window.
+`pi-lsp-extension` gives Pi a small set of read-only LSP tools without turning startup into an IDE boot. Language servers are lazy at session startup, installed servers can be warmed in the background when Pi reads source files, managed installs are isolated under Pi's runtime directory, and large LSP responses are paginated through a short-lived cache so they do not flood the context window.
 
 ## Why this exists
 
@@ -42,14 +42,15 @@ The default install mode is `prompt`: agent tool calls will not silently install
 
 ## What happens on first use
 
-| You do this                                            | What happens                                                                                                                    |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Run `/lsp` in an interactive Pi session                | Pi opens a compact LSP panel showing configured servers, install state, tracked processes, and config warnings.                 |
-| Run `/lsp status`                                      | Pi prints the same status as text.                                                                                              |
-| Run `/lsp install pyright`                             | The server is installed under `~/.pi/agent/lsp/`, and the resolved command is recorded in Pi's LSP lockfile.                    |
-| Ask for diagnostics/hover/definitions on a source file | The extension detects the filetype and project root, starts the matching installed server if needed, then runs the LSP request. |
-| Query many references or symbols                       | The first ranked page is returned immediately. If more pages exist, the result includes a `resultId` for `lsp_more`.            |
-| Configure a Mason/Nix/system binary                    | Pi uses that command but does not own, update, or uninstall it. Use global config for executable overrides.                     |
+| You do this                                            | What happens                                                                                                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Run `/lsp` in an interactive Pi session                | Pi opens a compact LSP panel showing configured servers, install state, tracked processes, and config warnings.                                 |
+| Run `/lsp status`                                      | Pi prints the same status as text.                                                                                                              |
+| Run `/lsp install pyright`                             | The server is installed under `~/.pi/agent/lsp/`, and the resolved command is recorded in Pi's LSP lockfile.                                    |
+| Read a supported source file with Pi's `read` tool     | If `warmup` is enabled, the matching installed server is started in the background. Missing servers are ignored.                                |
+| Ask for diagnostics/hover/definitions on a source file | The extension detects the filetype and project root, reuses a warmed server or starts the matching server if needed, then runs the LSP request. |
+| Query many references or symbols                       | The first ranked page is returned immediately. If more pages exist, the result includes a `resultId` for `lsp_more`.                            |
+| Configure a Mason/Nix/system binary                    | Pi uses that command but does not own, update, or uninstall it. Use global config for executable overrides.                                     |
 
 ## Quick start
 
@@ -120,66 +121,87 @@ You can override these definitions or add new server definitions in config.
 
 ## Configuration
 
-Configuration is merged in this order:
+Most users only need one file:
 
-1. built-in catalog
-2. global config: `~/.pi/agents/lsp.json`
-3. project config: `.pi/lsp.json`
+```text
+~/.pi/agents/lsp.json
+```
 
-> Note the path split: config uses `~/.pi/agents/lsp.json` (`agents` plural), while extension-managed runtime files live under `~/.pi/agent/lsp/` (`agent` singular).
-
-### File layout
-
-| Path                            | Purpose                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| `~/.pi/agents/lsp.json`         | User-global config. Best place for executable, install, and PATH tweaks |
-| `.pi/lsp.json`                  | Project-local config. Safe fields are honored in untrusted projects     |
-| `~/.pi/agent/lsp/packages/`     | Pi-managed language-server installs                                     |
-| `~/.pi/agent/lsp/bin/`          | Pi-managed executable links                                             |
-| `~/.pi/agent/lsp/lsp.lock.json` | Resolved managed install metadata                                       |
-| `~/.pi/agent/lsp/logs/`         | Language-server logs                                                    |
-| `~/.pi/agent/lsp/lsp.pid.json`  | Process registry used for lifecycle cleanup                             |
-| `~/.pi/agent/lsp/workspaces/`   | Per-server workspaces, for example JDT LS data directories              |
-| `~/.pi/agent/lsp/cache/`        | Runtime caches owned by the extension                                   |
-
-Do not put extension source code under `~/.pi/agent/lsp/`; that directory is for runtime state.
-
-### Install mode
-
-Minimal global config:
+If that file does not exist, the extension behaves as if this config were present:
 
 ```json
 {
-  "installMode": "prompt"
+  "installMode": "prompt",
+  "warmup": true,
+  "servers": {}
 }
 ```
 
+`servers: {}` means "use the built-in server catalog unchanged". Add entries only when you want to override a built-in server or define a new one.
+
+### Config files and merge order
+
+| Priority | Path                    | Purpose                                                                                                          |
+| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1        | built-in catalog        | Default server definitions for `vtsls`, `pyright`, `gopls`, `rust-analyzer`, `yamlls`, etc.                      |
+| 2        | `~/.pi/agents/lsp.json` | User-global config. Best place for executable, install, PATH, `installMode`, and `warmup`.                       |
+| 3        | `.pi/lsp.json`          | Project-local config. Safe server fields are honored before trust; process-starting fields require `/lsp trust`. |
+
+> Path gotcha: config uses `~/.pi/agents/lsp.json` (`agents` plural). Runtime state uses `~/.pi/agent/lsp/` (`agent` singular).
+
+### Runtime paths
+
+Do not edit these by hand unless you are debugging or cleaning up state:
+
+| Path                            | Purpose                                                    |
+| ------------------------------- | ---------------------------------------------------------- |
+| `~/.pi/agent/lsp/packages/`     | Pi-managed language-server installs                        |
+| `~/.pi/agent/lsp/bin/`          | Pi-managed executable links                                |
+| `~/.pi/agent/lsp/lsp.lock.json` | Resolved managed install metadata                          |
+| `~/.pi/agent/lsp/logs/`         | Language-server logs                                       |
+| `~/.pi/agent/lsp/lsp.pid.json`  | Process registry used for lifecycle cleanup                |
+| `~/.pi/agent/lsp/workspaces/`   | Per-server workspaces, for example JDT LS data directories |
+| `~/.pi/agent/lsp/cache/`        | Runtime caches owned by the extension                      |
+
+Do not put extension source code under `~/.pi/agent/lsp/`; that directory is only for runtime state.
+
+### Top-level config fields
+
+| Field         | Default    | Behavior                                                                                       |
+| ------------- | ---------- | ---------------------------------------------------------------------------------------------- |
+| `installMode` | `"prompt"` | Missing servers are installed only when explicitly requested or interactively confirmed.       |
+| `warmup`      | `true`     | Pi `read` calls for supported source files start matching installed servers in the background. |
+| `servers`     | `{}`       | Per-server overrides merged into the built-in catalog.                                         |
+
+`installMode` can be:
+
 | Mode     | Behavior                                                                    |
 | -------- | --------------------------------------------------------------------------- |
-| `prompt` | Default. Install only when explicitly requested or interactively confirmed. |
+| `prompt` | Install only when explicitly requested or interactively confirmed.          |
 | `auto`   | Install missing servers automatically when an LSP tool needs them.          |
 | `off`    | Never install automatically. Use system commands or explicit installs only. |
 
-### Server options
+`warmup` never prompts and never installs missing servers. It only prepares already-installed servers after Pi reads a matching source file. `lazy` still means servers do not start at session startup.
 
-A server definition can include:
+### Common config snippets
 
-| Field                   | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `displayName`           | Human-readable name shown in status output               |
-| `filetypes`             | Filetypes handled by the server                          |
-| `rootMarkers`           | Files/directories used to detect the project root        |
-| `install`               | Managed install spec: `npm`, `go`, `github`, or `system` |
-| `command`               | Command used to start the language server                |
-| `cwd`                   | Working directory for the server command                 |
-| `env`                   | Environment overrides; supports `$env:VAR` references    |
-| `settings`              | LSP settings returned through `workspace/configuration`  |
-| `initializationOptions` | LSP initialization options                               |
-| `lazy`                  | Whether the server should start only on demand           |
+Disable read warmup:
 
-`command` supports placeholders such as `{installBin}`, `{installDir}`, `{platform}`, and `{workspaceDir}`. Relative path-like values are resolved from the detected project root, and `~` is expanded.
+```json
+{
+  "warmup": false
+}
+```
 
-Example project config that tunes Pyright without changing executables:
+Auto-install missing servers on first explicit LSP tool use:
+
+```json
+{
+  "installMode": "auto"
+}
+```
+
+Tune Pyright analysis from project config without changing executables:
 
 ```json
 {
@@ -196,6 +218,25 @@ Example project config that tunes Pyright without changing executables:
   }
 }
 ```
+
+### Server override fields
+
+A server definition can include:
+
+| Field                   | Description                                                 |
+| ----------------------- | ----------------------------------------------------------- |
+| `displayName`           | Human-readable name shown in status output                  |
+| `filetypes`             | Filetypes handled by the server                             |
+| `rootMarkers`           | Files/directories used to detect the project root           |
+| `install`               | Managed install spec: `npm`, `go`, `github`, or `system`    |
+| `command`               | Command used to start the language server                   |
+| `cwd`                   | Working directory for the server command                    |
+| `env`                   | Environment overrides; supports `$env:VAR` references       |
+| `settings`              | LSP settings returned through `workspace/configuration`     |
+| `initializationOptions` | LSP initialization options                                  |
+| `lazy`                  | Whether the server should avoid session-start eager startup |
+
+`command` supports placeholders such as `{installBin}`, `{installDir}`, `{platform}`, and `{workspaceDir}`. Relative path-like values are resolved from the detected project root, and `~` is expanded.
 
 Project config is intentionally conservative. In untrusted projects, executable and install overrides are ignored; put those in global config.
 
@@ -300,8 +341,9 @@ Interactive `/lsp` panel keys:
 - The extension adds read-only LSP tools and prompt guidance to Pi.
 - File requests are resolved by filetype and nearest project root marker.
 - Server definitions come from the built-in catalog plus global/project config.
-- Missing-server behavior follows `installMode`.
+- Missing-server behavior follows `installMode`; read warmup never installs missing servers.
 - Servers start lazily over stdio and are tracked in a process registry.
+- When `warmup` is enabled, source-file reads can prepare installed servers in the background before an LSP tool call.
 - LSP responses are normalized into compact text plus structured details.
 - Diagnostics, locations, and symbols are sorted/paged before reaching the model.
 - Extra pages are stored in the in-memory result cache and fetched with `lsp_more`.
@@ -370,6 +412,6 @@ This only removes Pi-managed install state. It does not remove external system/M
 
 - Tools are read-only. Rename, code action, and formatting support are intentionally not exposed yet.
 - A language server must support the requested LSP capability for the matching tool to return data.
-- First use can be slower while a server starts, initializes, or installs.
+- First explicit LSP use can still be slower while a server starts, initializes, or installs, especially when warmup is disabled or the server was not installed when the file was read.
 - `lsp_workspace_symbols` searches active clients by default; pass `serverId` to start/query a specific configured server.
 - Pagination result IDs are not persistent and can expire. Re-run the original LSP query if `lsp_more` says the cached result is gone.

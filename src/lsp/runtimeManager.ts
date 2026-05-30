@@ -81,6 +81,7 @@ interface ClientShutdownResult {
 
 interface ClientStartOptions {
   allowPromptInstall: boolean;
+  allowAutoInstall?: boolean;
 }
 
 interface EnsureClientInput {
@@ -88,6 +89,7 @@ interface EnsureClientInput {
   rootDir: string;
   rootMarker?: string;
   allowPromptInstall: boolean;
+  allowAutoInstall?: boolean;
 }
 
 interface StartClientInput extends EnsureClientInput {
@@ -186,6 +188,23 @@ export class LspRuntimeManager {
   async stopServer(serverId?: string): Promise<number> {
     const stopped = await this.shutdownClients((client) => !serverId || client.serverId === serverId);
     return stopped.filter((entry) => entry.stopped).length;
+  }
+
+  async warmupFile(filePath: string): Promise<boolean> {
+    try {
+      const selected = await this.selectServerForFile(filePath);
+      const target = await this.ensureClient({
+        server: selected.server,
+        rootDir: selected.rootDir,
+        rootMarker: selected.rootMarker,
+        allowPromptInstall: false,
+        allowAutoInstall: false,
+      });
+      await target.client.syncFile(selected.filePath, selected.filetype, selected.text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async diagnostics(filePath: string): Promise<LspDiagnosticsResult> {
@@ -414,7 +433,10 @@ export class LspRuntimeManager {
   }
 
   private async startClient(input: StartClientInput): Promise<ClientTarget> {
-    const install = await this.ensureInstalled(input.server.id, { allowPromptInstall: input.allowPromptInstall });
+    const install = await this.ensureInstalled(input.server.id, {
+      allowPromptInstall: input.allowPromptInstall,
+      allowAutoInstall: input.allowAutoInstall,
+    });
     const resolved = await resolveServerConfig({
       server: input.server,
       rootDir: input.rootDir,
@@ -450,7 +472,7 @@ export class LspRuntimeManager {
     const existing = lockfile.servers[serverId];
     if (existing) return existing;
 
-    if (!options.allowPromptInstall && this.config.installMode !== "auto") {
+    if (!options.allowPromptInstall && (!(options.allowAutoInstall ?? true) || this.config.installMode !== "auto")) {
       throw new LspRuntimeError(
         `${serverId} is not installed. Run /lsp install ${serverId} to install it explicitly.`,
         "not-installed",

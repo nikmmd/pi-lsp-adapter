@@ -84,6 +84,7 @@ export interface FiletypeRules {
 
 export interface LspConfig {
   installMode?: InstallMode;
+  warmup?: boolean;
   servers?: Record<string, Partial<ServerDefinition>>;
   trustedProjects?: string[];
 }

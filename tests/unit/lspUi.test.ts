@@ -13,6 +13,7 @@ describe("LSP status formatting", () => {
     const text = formatLspStatus(snapshot());
 
     expect(text).toContain("installMode: prompt");
+    expect(text).toContain("warmup: enabled");
     expect(text).toContain("tracked processes: 1");
     expect(text).toContain("- pyright: installed, 1 process");
   });
@@ -47,6 +48,7 @@ function snapshot(): LspStatusSnapshot {
       catalog: BUILTIN_CATALOG,
       warnings: [],
       installMode: "prompt",
+      warmup: true,
     },
     lockfile: {
       servers: {

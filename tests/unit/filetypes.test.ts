@@ -44,7 +44,7 @@ describe("detectFiletype", () => {
   });
 
   it("detects JSON from content starting with [", () => {
-    expect(detectFiletype({ path: "data.dat", content: '[1, 2, 3]' })).toBe("json");
+    expect(detectFiletype({ path: "data.dat", content: "[1, 2, 3]" })).toBe("json");
   });
 
   it("detects YAML from content starting with ---", () => {
@@ -77,7 +77,7 @@ describe("detectFiletype", () => {
     expect(
       detectFiletype({
         path: "Dockerfile",
-        overrides: { filenames: { "Dockerfile": "dockerfile" } },
+        overrides: { filenames: { Dockerfile: "dockerfile" } },
       }),
     ).toBe("dockerfile");
   });
@@ -96,8 +96,8 @@ describe("detectFiletype", () => {
       detectFiletype({
         path: "MyFile",
         overrides: {
-          filenames: { "MyFile": "json" },
-          exactFilenames: { "MyFile": "yaml" },
+          filenames: { MyFile: "json" },
+          exactFilenames: { MyFile: "yaml" },
         },
       }),
     ).toBe("yaml");

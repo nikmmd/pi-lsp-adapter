@@ -65,6 +65,7 @@
     }
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.74.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.15.0",
     "@vitest/coverage-v8": "^4.1.7",

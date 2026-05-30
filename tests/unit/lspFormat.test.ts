@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SymbolKind } from "vscode-languageserver-protocol";
-import {
-  formatDefinition,
-  formatDocumentSymbols,
-  formatHover,
-  failure,
-  success,
-} from "../../src/tools/lspFormat.js";
+import { formatDefinition, formatDocumentSymbols, formatHover, failure, success } from "../../src/tools/lspFormat.js";
 import { LspResultCache } from "../../src/tools/resultCache.js";
 
 function cache(): LspResultCache {
@@ -67,10 +61,7 @@ describe("formatHover", () => {
     const result = formatHover({
       ...baseResult(),
       result: {
-        contents: [
-          "first part",
-          { kind: "markdown", value: "second part" },
-        ],
+        contents: ["first part", { language: "markdown", value: "second part" }],
       },
     });
     expect(result.content[0].text).toContain("first part");

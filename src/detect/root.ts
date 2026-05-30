@@ -30,5 +30,3 @@ export async function detectRoot(filePath: string, rootMarkers: string[]): Promi
     currentDir = dirname(currentDir);
   }
 }
-
-

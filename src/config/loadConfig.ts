@@ -17,10 +17,12 @@ export interface LoadLspConfigResult {
   catalog: Catalog;
   warnings: string[];
   installMode: InstallMode;
+  warmup: boolean;
 }
 
 interface RawLspConfig {
   installMode?: unknown;
+  warmup?: unknown;
   servers?: unknown;
 }
 
@@ -59,6 +61,7 @@ export async function loadLspConfig(input: LoadLspConfigInput): Promise<LoadLspC
   const warnings: string[] = [];
   const catalog = deepClone(BUILTIN_CATALOG);
   let installMode: InstallMode = "prompt";
+  let warmup = true;
   const projectRoot = input.projectRoot ?? input.cwd;
   const projectTrusted = await isProjectTrusted(projectRoot);
 
@@ -82,10 +85,11 @@ export async function loadLspConfig(input: LoadLspConfigInput): Promise<LoadLspC
     if (!config) continue;
 
     installMode = mergeInstallMode(installMode, config.installMode, source, projectRoot, warnings);
+    warmup = mergeWarmup(warmup, config.warmup, source, projectRoot, warnings);
     mergeServers(catalog, config.servers, source, projectRoot, warnings);
   }
 
-  return { catalog, warnings, installMode };
+  return { catalog, warnings, installMode, warmup };
 }
 
 async function readConfig(source: ConfigSource, warnings: string[]): Promise<RawLspConfig | undefined> {
@@ -137,6 +141,30 @@ function mergeInstallMode(
   }
 
   warnings.push(`Ignoring invalid installMode in ${source.label} at ${source.path}: expected prompt, auto, or off.`);
+  return current;
+}
+
+function mergeWarmup(
+  current: boolean,
+  value: unknown,
+  source: ConfigSource,
+  projectRoot: string,
+  warnings: string[],
+): boolean {
+  if (value === undefined) return current;
+
+  if (source.kind === "project" && !source.trustedProjectOverrides) {
+    warnings.push(
+      `Ignoring trusted-only project warmup from ${source.path}; run /lsp trust ${projectRoot} to allow project warmup overrides.`,
+    );
+    return current;
+  }
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  warnings.push(`Ignoring invalid warmup in ${source.label} at ${source.path}: expected true or false.`);
   return current;
 }
 
@@ -331,5 +359,3 @@ function ignoredProjectServerFieldWarning(
 
   return `Ignoring trusted-only project override for ${serverId}.${field} from ${sourcePath}; only filetypes, rootMarkers, settings, initializationOptions, env, and cwd are allowed before /lsp trust ${projectRoot}.`;
 }
-
-

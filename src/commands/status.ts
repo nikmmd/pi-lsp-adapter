@@ -12,6 +12,7 @@ export interface LspStatusSnapshot {
 export function formatLspStatus(snapshot: LspStatusSnapshot): string {
   const lines = ["LSP status", ""];
   lines.push(`installMode: ${snapshot.config.installMode}`);
+  lines.push(`warmup: ${snapshot.config.warmup ? "enabled" : "disabled"}`);
   lines.push(`servers: ${Object.keys(snapshot.config.catalog.servers).length}`);
   lines.push(`tracked processes: ${snapshot.processes.length}`);
 

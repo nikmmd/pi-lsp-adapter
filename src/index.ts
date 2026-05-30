@@ -8,6 +8,7 @@ import { LspProcessRegistry } from "./lsp/processRegistry.js";
 import { LspRuntimeManager } from "./lsp/runtimeManager.js";
 import { registerLspCommand } from "./commands/registerCommands.js";
 import { registerLspTools } from "./tools/registerLspTools.js";
+import { registerLspWarmup } from "./tools/registerLspWarmup.js";
 import { LspResultCache } from "./tools/resultCache.js";
 import { setLspStatusLine } from "./statusLine.js";
 import type { LspExtensionState } from "./state.js";
@@ -18,6 +19,7 @@ export default function piAgentLspExtension(pi: ExtensionAPI): void {
 
   registerLspCommand(pi, () => state);
   registerLspTools(pi, () => state);
+  registerLspWarmup(pi, () => state);
 
   pi.on("before_agent_start", (event) => {
     if (!state) return;
@@ -128,5 +130,3 @@ function notifyStartup(ctx: ExtensionContext, state: LspExtensionState): void {
 function createOwnerId(): string {
   return `pi-lsp-${process.pid}-${randomUUID()}`;
 }
-
-

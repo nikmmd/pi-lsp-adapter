@@ -61,7 +61,9 @@ export class LspPanel {
 
     lines.push(border(`╭${centerTitle(" LSP ", innerWidth)}╮`));
     lines.push(
-      row(`installMode: ${this.snapshot.config.installMode}  tracked pids: ${this.snapshot.processes.length}`),
+      row(
+        `installMode: ${this.snapshot.config.installMode}  warmup: ${this.snapshot.config.warmup ? "on" : "off"}  tracked pids: ${this.snapshot.processes.length}`,
+      ),
     );
 
     if (this.snapshot.config.warnings.length > 0) {

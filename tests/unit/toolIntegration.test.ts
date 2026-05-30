@@ -46,9 +46,9 @@ function fakeState(runtime: Partial<LspExtensionState["runtimeManager"]> = {}): 
   return {
     ownerId: "test",
     cwd: tempHome,
-    config: { catalog: { servers: {} }, warnings: [], installMode: "auto" },
-    installManager: {} as any,
-    processRegistry: {} as any,
+    config: { catalog: { servers: {} }, warnings: [], installMode: "auto", warmup: true },
+    installManager: {} as never,
+    processRegistry: {} as never,
     runtimeManager: {
       diagnostics: async () => ({
         serverId: "vtsls",
@@ -128,8 +128,8 @@ function fakeState(runtime: Partial<LspExtensionState["runtimeManager"]> = {}): 
         },
       ],
       ...runtime,
-    } as any,
-    resultCache: { store: () => undefined, next: () => ({ content: [{ type: "text" as const, text: "" }] }) } as any,
+    } as never,
+    resultCache: { store: () => undefined, next: () => ({ content: [{ type: "text" as const, text: "" }] }) } as never,
   };
 }
 
@@ -166,7 +166,7 @@ describe("LSP tool integration", () => {
       column: 1,
     } as never);
 
-    expect(result?.content[0]?.text).toContain("LSP definition")
+    expect(result?.content[0]?.text).toContain("LSP definition");
   });
 
   it("lsp_references executes and returns formatted result", async () => {
@@ -179,7 +179,7 @@ describe("LSP tool integration", () => {
       column: 1,
     } as never);
 
-    expect(result?.content[0]?.text).toContain("LSP reference")
+    expect(result?.content[0]?.text).toContain("LSP reference");
   });
 
   it("lsp_references with includeDeclaration", async () => {
@@ -193,7 +193,7 @@ describe("LSP tool integration", () => {
       includeDeclaration: true,
     } as never);
 
-    expect(result?.content[0]?.text).toContain("LSP reference")
+    expect(result?.content[0]?.text).toContain("LSP reference");
   });
 
   it("lsp_document_symbols executes and returns formatted result", async () => {

@@ -20,5 +20,3 @@ export class MissingBinaryError extends ConfigError {
     super(`${serverId} binary not found: ${command}`);
   }
 }
-
-

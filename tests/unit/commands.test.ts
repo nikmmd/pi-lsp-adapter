@@ -44,7 +44,9 @@ function fakeContext(): FakeCommandContext {
       statuses,
       theme: { fg: (_name: string, text: string) => text },
       notify: (message: string, level: string) => notifications.push({ message, level }),
-      setStatus: (key: string, value: string | undefined) => { statuses[key] = value; },
+      setStatus: (key: string, value: string | undefined) => {
+        statuses[key] = value;
+      },
       custom: async () => undefined,
     },
   };
@@ -57,11 +59,11 @@ function fakeNoUIContext(): FakeCommandContext {
   };
 }
 
-function fakeState(partial?: Partial<LspExtensionState>): LspExtensionState {
+function fakeState(partial?: Partial<Record<keyof LspExtensionState, unknown>>): LspExtensionState {
   return {
     ownerId: "test-owner",
     cwd: tempHome,
-    config: { catalog: { servers: {} }, warnings: [], installMode: "auto" },
+    config: { catalog: { servers: {} }, warnings: [], installMode: "auto", warmup: true },
     installManager: {
       ensureInstalled: async () => ({ status: "installed", serverId: "vtsls" }),
       installServer: async (id: string) => ({
@@ -73,20 +75,20 @@ function fakeState(partial?: Partial<LspExtensionState>): LspExtensionState {
         metadata: { installer: "npm" as const, resolvedCommand: [id], installedAt: new Date().toISOString() },
       }),
       uninstallServer: async (id: string) => ({ serverId: id, removed: true }),
-    } as any,
+    } as never,
     processRegistry: {
       list: async () => [],
       terminateProcesses: async () => ({ terminated: [], removed: [], kept: [] }),
-    } as any,
+    } as never,
     runtimeManager: {
       startServer: async () => [],
       restartServer: async () => [],
       stopServer: async () => 0,
       activeClients: () => [],
-    } as any,
-    resultCache: {} as any,
+    } as never,
+    resultCache: {} as never,
     ...partial,
-  };
+  } as LspExtensionState;
 }
 
 describe("registerLspCommand", () => {
@@ -94,7 +96,11 @@ describe("registerLspCommand", () => {
     const ctx = fakeContext();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => null,
     );
     await handler!("status", ctx);
@@ -105,7 +111,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeNoUIContext();
@@ -116,7 +126,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -128,7 +142,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -140,7 +158,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -152,7 +174,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -173,7 +199,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -186,7 +216,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -210,7 +244,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -227,11 +265,23 @@ describe("registerLspCommand", () => {
       config: {
         catalog: {
           servers: {
-            pyright: { id: "pyright", displayName: "Pyright", filetypes: ["python"], rootMarkers: ["pyproject.toml"], install: { type: "system", command: ["pyright"] }, command: ["pyright"], env: {}, settings: {}, initializationOptions: {}, lazy: true },
+            pyright: {
+              id: "pyright",
+              displayName: "Pyright",
+              filetypes: ["python"],
+              rootMarkers: ["pyproject.toml"],
+              install: { type: "system", command: ["pyright"] },
+              command: ["pyright"],
+              env: {},
+              settings: {},
+              initializationOptions: {},
+              lazy: true,
+            },
           },
         },
         warnings: [],
         installMode: "auto",
+        warmup: true,
       },
       installManager: {
         ...fakeState().installManager,
@@ -240,7 +290,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -258,11 +312,23 @@ describe("registerLspCommand", () => {
       config: {
         catalog: {
           servers: {
-            pyright: { id: "pyright", displayName: "Pyright", filetypes: ["python"], rootMarkers: ["pyproject.toml"], install: { type: "system", command: ["pyright"] }, command: ["pyright"], env: {}, settings: {}, initializationOptions: {}, lazy: true },
+            pyright: {
+              id: "pyright",
+              displayName: "Pyright",
+              filetypes: ["python"],
+              rootMarkers: ["pyproject.toml"],
+              install: { type: "system", command: ["pyright"] },
+              command: ["pyright"],
+              env: {},
+              settings: {},
+              initializationOptions: {},
+              lazy: true,
+            },
           },
         },
         warnings: [],
         installMode: "auto",
+        warmup: true,
       },
       installManager: {
         ...fakeState().installManager,
@@ -271,7 +337,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -284,7 +354,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -308,7 +382,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -320,7 +398,11 @@ describe("registerLspCommand", () => {
     const state = fakeState();
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -344,7 +426,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -356,14 +442,16 @@ describe("registerLspCommand", () => {
     const state = fakeState({
       runtimeManager: {
         ...fakeState().runtimeManager,
-        startServer: vi.fn().mockResolvedValue([
-          { status: "running", message: "Started vtsls" },
-        ]),
+        startServer: vi.fn().mockResolvedValue([{ status: "running", message: "Started vtsls" }]),
       },
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -375,14 +463,16 @@ describe("registerLspCommand", () => {
     const state = fakeState({
       runtimeManager: {
         ...fakeState().runtimeManager,
-        restartServer: vi.fn().mockResolvedValue([
-          { status: "running", message: "Restarted vtsls" },
-        ]),
+        restartServer: vi.fn().mockResolvedValue([{ status: "running", message: "Restarted vtsls" }]),
       },
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -399,7 +489,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -416,7 +510,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -433,7 +531,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();
@@ -454,7 +556,11 @@ describe("registerLspCommand", () => {
     });
     let handler: Handler | undefined;
     registerLspCommand(
-      { registerCommand: (_name: string, cmd: { handler: Handler }) => { handler = cmd.handler; } } as any,
+      {
+        registerCommand: (_name: string, cmd: { handler: Handler }) => {
+          handler = cmd.handler;
+        },
+      } as never,
       () => state,
     );
     const ctx = fakeContext();

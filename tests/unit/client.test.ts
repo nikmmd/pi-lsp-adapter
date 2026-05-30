@@ -3,11 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  InitializeRequest,
-  HoverRequest,
-  PublishDiagnosticsNotification,
-} from "vscode-languageserver-protocol";
+import { InitializeRequest, HoverRequest, PublishDiagnosticsNotification } from "vscode-languageserver-protocol";
 import type { Disposable } from "vscode-jsonrpc";
 import { LspClient, type LspConnection, type LspServerProcess } from "../../src/lsp/client.js";
 import { LspProcessRegistry, type ProcessProbe } from "../../src/lsp/processRegistry.js";
@@ -31,6 +27,13 @@ function fakeProbe(): ProcessProbe {
     commandMatches: () => true,
     terminate: () => undefined,
   };
+}
+
+function fakeRegistry(unregister: () => Promise<unknown> = async () => undefined): LspProcessRegistry {
+  return {
+    register: async () => undefined,
+    unregister,
+  } as never;
 }
 
 function config(rootDir: string): ResolvedServerConfig {
@@ -71,13 +74,15 @@ class FakeConnection implements LspConnection {
   private readonly notificationHandlers = new Map<string, (params: unknown) => void>();
   private requestHandler: ((method: string) => unknown) | undefined;
 
-  constructor(private readonly capabilities: Record<string, unknown> = {
-    hoverProvider: true,
-    definitionProvider: true,
-    referencesProvider: true,
-    documentSymbolProvider: true,
-    workspaceSymbolProvider: true,
-  }) {}
+  constructor(
+    private readonly capabilities: Record<string, unknown> = {
+      hoverProvider: true,
+      definitionProvider: true,
+      referencesProvider: true,
+      documentSymbolProvider: true,
+      workspaceSymbolProvider: true,
+    },
+  ) {}
 
   listen(): void {}
 
@@ -99,6 +104,10 @@ class FakeConnection implements LspConnection {
   onNotification(method: string, handler: (params: unknown) => void): Disposable {
     this.notificationHandlers.set(method, handler);
     return { dispose: () => this.notificationHandlers.delete(method) };
+  }
+
+  emitNotification(method: string, params: unknown): void {
+    this.notificationHandlers.get(method)?.(params);
   }
 
   onRequest(): Disposable {
@@ -136,14 +145,15 @@ describe("LspClient", () => {
 
   it("throws when pid is invalid", () => {
     const process = { pid: 0 } as LspServerProcess;
-    expect(() =>
-      new LspClient({
-        id: "bad-pid:/repo",
-        ownerId: "test",
-        config: config(tempDir),
-        processRegistry: {} as any,
-        spawner: () => process,
-      }),
+    expect(
+      () =>
+        new LspClient({
+          id: "bad-pid:/repo",
+          ownerId: "test",
+          config: config(tempDir),
+          processRegistry: {} as never,
+          spawner: () => process,
+        }),
     ).toThrow("did not expose a valid pid");
   });
 
@@ -166,9 +176,7 @@ describe("LspClient", () => {
     const uri = await client.syncFile(join(tempDir, "index.ts"), "typescript", "const x = 1;\n");
 
     expect(uri).toContain(tempDir);
-    const didOpen = connection.notifications.find((n) =>
-      n.method === "textDocument/didOpen"
-    );
+    const didOpen = connection.notifications.find((n) => n.method === "textDocument/didOpen");
     expect(didOpen).toBeDefined();
     expect(didOpen!.params).toMatchObject({
       textDocument: { languageId: "typescript", version: 1, text: "const x = 1;\n" },
@@ -194,9 +202,7 @@ describe("LspClient", () => {
     const uri = await client.syncFile(join(tempDir, "index.ts"), "typescript", "const x = 1;\n");
     await client.syncFile(join(tempDir, "index.ts"), "typescript", "const x = 2;\n");
 
-    const didChange = connection.notifications.find((n) =>
-      n.method === "textDocument/didChange"
-    );
+    const didChange = connection.notifications.find((n) => n.method === "textDocument/didChange");
     expect(didChange).toBeDefined();
     expect(didChange!.params).toMatchObject({
       textDocument: { uri, version: 2 },
@@ -243,11 +249,7 @@ describe("LspClient", () => {
 
     await client.start();
 
-    // Simulate the server sending diagnostics
-    const diagnosticsHandler = connection.notificationHandlers.get(PublishDiagnosticsNotification.method);
-    expect(diagnosticsHandler).toBeDefined();
-
-    diagnosticsHandler!({
+    connection.emitNotification(PublishDiagnosticsNotification.method, {
       uri: "file:///repo/index.ts",
       diagnostics: [
         {
@@ -298,9 +300,7 @@ describe("LspClient", () => {
 
     await client.start();
 
-    await expect(client.hover("file:///repo/index.ts", 0, 0)).rejects.toThrow(
-      "test-ls does not support LSP hover"
-    );
+    await expect(client.hover("file:///repo/index.ts", 0, 0)).rejects.toThrow("test-ls does not support LSP hover");
   });
 
   it("performs hover request", async () => {
@@ -406,10 +406,7 @@ describe("LspClient", () => {
   it("shuts down gracefully when process exits", async () => {
     const process = new FakeProcess(9999);
     const connection = new FakeConnection();
-    const registry: any = {
-      register: async () => undefined,
-      unregister: async () => undefined,
-    };
+    const registry = fakeRegistry();
 
     const client = new LspClient({
       id: "test-ls:/repo",
@@ -439,10 +436,7 @@ describe("LspClient", () => {
       }
     })(9999);
     const connection = new FakeConnection();
-    const registry: any = {
-      register: async () => undefined,
-      unregister: async () => undefined,
-    };
+    const registry = fakeRegistry();
 
     const client = new LspClient({
       id: "test-ls:/repo",
@@ -463,10 +457,7 @@ describe("LspClient", () => {
   it("handles already-exited process on shutdown", async () => {
     const process = new FakeProcess(9999);
     const connection = new FakeConnection();
-    const registry: any = {
-      register: async () => undefined,
-      unregister: async () => undefined,
-    };
+    const registry = fakeRegistry();
 
     const client = new LspClient({
       id: "test-ls:/repo",
@@ -506,10 +497,7 @@ describe("LspClient", () => {
     const unregisterSpy = vi.fn().mockResolvedValue(undefined);
     const process = new FakeProcess(9999);
     const connection = new FakeConnection();
-    const registry: any = {
-      register: async () => undefined,
-      unregister: unregisterSpy,
-    };
+    const registry = fakeRegistry(unregisterSpy);
 
     const client = new LspClient({
       id: "test-ls:/repo",

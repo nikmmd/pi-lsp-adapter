@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DidOpenTextDocumentNotification,
   HoverRequest,
@@ -102,6 +102,61 @@ describe("LspRuntimeManager", () => {
     await expect(runtime.registry.list()).resolves.toEqual([]);
   });
 
+  it("does not install missing servers while warming a read file", async () => {
+    await writeFile(join(projectDir, "src", "index.ts"), "export const value = 1;\n", "utf8");
+    const installManager = { ensureInstalled: vi.fn() } as unknown as LspInstallManager;
+    const runtime = runtimeManager({ installMode: "auto", installManager });
+
+    await expect(runtime.warmupFile("src/index.ts")).resolves.toBe(false);
+
+    expect(installManager.ensureInstalled).not.toHaveBeenCalled();
+    await expect(runtime.registry.list()).resolves.toEqual([]);
+  });
+
+  it("warms an installed server for a read file and syncs the document", async () => {
+    await writeFile(join(projectDir, "package.json"), "{}\n", "utf8");
+    await writeFile(join(projectDir, "src", "index.ts"), "export const value = 1;\n", "utf8");
+    await writeFile(
+      join(tempDir, "lsp.lock.json"),
+      JSON.stringify(
+        {
+          servers: {
+            vtsls: {
+              installer: "system",
+              resolvedCommand: ["fake-ls", "--stdio"],
+              installedAt: "2026-05-28T00:00:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    const connections: FakeConnection[] = [];
+    const runtime = runtimeManager({
+      connectionFactory: (process) => {
+        const connection = new FakeConnection(process.pid!);
+        connections.push(connection);
+        return connection;
+      },
+      installManager: { ensureInstalled: vi.fn() } as unknown as LspInstallManager,
+    });
+
+    await expect(runtime.warmupFile("src/index.ts")).resolves.toBe(true);
+
+    expect(runtime.activeClients()).toEqual([{ id: `vtsls:${projectDir}`, serverId: "vtsls", rootDir: projectDir }]);
+    expect(connections[0]?.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: DidOpenTextDocumentNotification.method,
+          params: expect.objectContaining({ textDocument: expect.objectContaining({ languageId: "typescript" }) }),
+        }),
+      ]),
+    );
+    await expect(runtime.registry.list()).resolves.toEqual([expect.objectContaining({ serverId: "vtsls" })]);
+  });
+
   it("refuses to start workspaces for files outside cwd", async () => {
     const outsideFile = join(tempDir, "outside.ts");
     await writeFile(outsideFile, "export const outside = 1;\n", "utf8");
@@ -159,6 +214,7 @@ function runtimeManager(
     installMode?: LoadLspConfigResult["installMode"];
     spawner?: () => LspServerProcess;
     connectionFactory?: (process: LspServerProcess) => LspConnection;
+    installManager?: LspInstallManager;
   } = {},
 ): LspRuntimeManager & {
   registry: LspProcessRegistry;
@@ -173,7 +229,7 @@ function runtimeManager(
     cwd: projectDir,
     ownerId: "owner-test",
     config: config(options.installMode ?? "auto"),
-    installManager: fakeInstallManager(options.installed ?? true),
+    installManager: options.installManager ?? fakeInstallManager(options.installed ?? true),
     processRegistry: registry,
     lockfileOptions: { lockfilePath: join(tempDir, "lsp.lock.json") },
     spawner: options.spawner ?? (() => new FakeProcess(nextPid++)),
@@ -191,6 +247,7 @@ function config(installMode: LoadLspConfigResult["installMode"]): LoadLspConfigR
     catalog: { servers: { vtsls: serverDefinition() } },
     warnings: [],
     installMode,
+    warmup: true,
   };
 }
 

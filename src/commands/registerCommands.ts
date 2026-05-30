@@ -226,5 +226,3 @@ function hasStartErrors(results: Array<{ status: string }>): boolean {
 function notify(ctx: ExtensionCommandContext, message: string, level: "info" | "warning" | "error"): void {
   if (ctx.hasUI) ctx.ui.notify(message, level);
 }
-
-

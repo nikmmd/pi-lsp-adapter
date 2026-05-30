@@ -313,5 +313,3 @@ function isPathLikeField(fieldPath: string): boolean {
     key.includes("workspace")
   );
 }
-
-

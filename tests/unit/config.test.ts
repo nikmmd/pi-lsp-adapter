@@ -82,6 +82,43 @@ describe("trust store", () => {
 });
 
 describe("loadLspConfig", () => {
+  it("defaults warmup to enabled and lets global config disable it", async () => {
+    expect((await loadLspConfig({ cwd: projectRoot, projectRoot })).warmup).toBe(true);
+
+    await writeJson(getUserConfigPath(), { warmup: false });
+
+    const result = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(result.warmup).toBe(false);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("treats project warmup overrides as trusted-only", async () => {
+    await writeJson(getUserConfigPath(), { warmup: false });
+    await writeJson(getProjectConfigPath(projectRoot), { warmup: true });
+
+    const untrusted = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(untrusted.warmup).toBe(false);
+    expect(untrusted.warnings).toEqual([expect.stringContaining("trusted-only project warmup")]);
+
+    await trustProject(projectRoot);
+
+    const trusted = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(trusted.warmup).toBe(true);
+    expect(trusted.warnings).toEqual([]);
+  });
+
+  it("ignores invalid warmup values", async () => {
+    await writeJson(getUserConfigPath(), { warmup: "yes" });
+
+    const result = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(result.warmup).toBe(true);
+    expect(result.warnings).toEqual([expect.stringContaining("Ignoring invalid warmup")]);
+  });
+
   it("merges config layers as built-in < global < project and preserves partial safe overrides", async () => {
     await writeJson(getUserConfigPath(), {
       installMode: "auto",

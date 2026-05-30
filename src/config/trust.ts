@@ -83,5 +83,3 @@ function isTrustStore(value: unknown): value is TrustStore {
   const trustedProjects = (value as { trustedProjects?: unknown }).trustedProjects;
   return Array.isArray(trustedProjects) && trustedProjects.every((entry) => typeof entry === "string");
 }
-
-
