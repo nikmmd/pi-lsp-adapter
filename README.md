@@ -1,6 +1,6 @@
 # pi-lsp-extension
 
-Language-server intelligence for [Pi](https://github.com/earendil-works/pi-coding-agent) agents: diagnostics, hover/type info, definitions, references, and symbol search on demand.
+Language-server intelligence for [Pi](https://github.com/earendil-works/pi) agents: diagnostics, hover/type info, definitions, references, and symbol search on demand.
 
 `pi-lsp-extension` gives Pi a small set of read-only LSP tools without turning startup into an IDE boot. Language servers are lazy at session startup, installed servers can be warmed in the background when Pi reads source files, managed installs are isolated under Pi's runtime directory, and large LSP responses are paginated through a short-lived cache so they do not flood the context window.
 
