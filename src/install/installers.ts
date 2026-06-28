@@ -364,12 +364,29 @@ async function resolveExecutable(command: string, env: Record<string, string>, s
     return absolute;
   }
 
-  const pathEntries = (env.PATH ?? "").split(process.platform === "win32" ? ";" : ":").filter(Boolean);
+  const rawPath = env.PATH ?? "";
+
+  let pathEntries: string[];
+  if (process.platform === "win32" && (rawPath.includes("/c/") || rawPath.includes("/usr/"))) {
+    // Git Bash / MSYS / MinGW expose a POSIX-style, ":"-separated PATH.
+    pathEntries = rawPath.split(":").filter(Boolean);
+  } else {
+    pathEntries = rawPath.split(process.platform === "win32" ? ";" : ":").filter(Boolean);
+  }
+
   const extensions = process.platform === "win32" ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";") : [""];
 
   for (const directory of pathEntries) {
     for (const extension of extensions) {
-      const candidate = join(directory, `${command}${extension}`);
+      let normalized = directory;
+
+      // Convert an MSYS "/c/Users/foo" entry to "C:\Users\foo" for fs.access().
+      if (process.platform === "win32" && /^\/[a-zA-Z]\//.test(normalized)) {
+        const drive = normalized[1]!.toUpperCase();
+        normalized = `${drive}:\\${normalized.slice(3).replace(/\//g, "\\")}`;
+      }
+
+      const candidate = join(normalized, `${command}${extension}`);
       if (await isExecutable(candidate)) {
         return candidate;
       }

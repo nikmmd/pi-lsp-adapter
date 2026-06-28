@@ -192,7 +192,10 @@ function replaceCommandPlaceholders(value: string, placeholders: Record<string, 
 function getInstallBinDir(install: InstalledServerMetadata | undefined): string | undefined {
   if (install?.binDir) return install.binDir;
   const commandPath = install?.resolvedCommand[0];
-  if (!commandPath || !commandPath.includes("/")) return undefined;
+  // A bare command name (e.g. "rust-analyzer") has no directory separator and
+  // yields no bin dir. Check for both "/" and "\\" so Windows-resolved system
+  // commands like "C:\\Users\\rockn\\go\\bin\\gopls.EXE" are handled too.
+  if (!commandPath || (!commandPath.includes("/") && !commandPath.includes("\\"))) return undefined;
   return dirname(commandPath);
 }
 

@@ -248,6 +248,24 @@ describe("resolveServerConfig", () => {
     expect(rust.env).toMatchObject({ CARGO_HOME: "/cargo/home", RUSTUP_HOME: "/rustup/home", RUSTFLAGS: "-Dwarnings" });
   });
 
+  it.runIf(process.platform === "win32")(
+    "derives {installBin} from a Windows back-slash system command without a binDir",
+    async () => {
+      const resolved = await resolveServerConfig({
+        server: BUILTIN_CATALOG.servers.gopls,
+        rootDir,
+        install: {
+          installer: "system",
+          resolvedCommand: ["C:\\Users\\rockn\\go\\bin\\gopls.EXE"],
+          installedAt: "2026-05-28T00:00:00Z",
+        },
+        processEnv: { HOME: tempHome, PATH: "C:\\Windows" },
+      });
+
+      expect(resolved.command).toEqual(["C:\\Users\\rockn\\go\\bin/gopls"]);
+    },
+  );
+
   it("expands install and environment placeholders in command argv without using a shell", async () => {
     const server: ServerDefinition = {
       ...BUILTIN_CATALOG.servers.vtsls,
