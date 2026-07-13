@@ -335,6 +335,32 @@ describe("installer backends", () => {
     });
   });
 
+  it.runIf(process.platform === "win32")(
+    "resolves system commands through an MSYS-style POSIX PATH on Windows",
+    async () => {
+      const binDir = join(tempHome, "system-bin");
+      const executable = join(binDir, "gopls.EXE");
+      await mkdir(binDir, { recursive: true });
+      await writeFile(executable, "binary", "utf8");
+
+      // Convert "C:\Users\...\system-bin" to the "/c/Users/.../system-bin" form
+      // Git Bash exposes, then chain a couple of POSIX entries so the splitter
+      // sees a ":"-separated PATH.
+      const drive = binDir[0]!.toLowerCase();
+      const msysBinDir = `/${drive}${binDir.slice(2).replace(/\\/g, "/")}`;
+      const msysPath = `${msysBinDir}:/usr/bin:/usr/local/bin`;
+
+      const server: ServerDefinition = {
+        ...BUILTIN_CATALOG.servers.gopls,
+        install: { type: "system", command: ["gopls"] },
+      };
+      const install = server.install;
+      if (install.type !== "system") throw new Error("system test fixture must use system install");
+
+      await expect(resolveSystemCommand(server, install, { PATH: msysPath })).resolves.toEqual([executable]);
+    },
+  );
+
   it("resolves system installer commands through PATH", async () => {
     const binDir = join(tempHome, "system-bin");
     const executable = join(binDir, "pyright-langserver");

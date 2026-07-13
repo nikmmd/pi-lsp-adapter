@@ -22,6 +22,17 @@ export function normalizeProcessEnv(env: NodeJS.ProcessEnv): Record<string, stri
   for (const [key, value] of Object.entries(env)) {
     if (typeof value === "string") {
       normalized[key] = value;
+      // On Windows, process.env is case-insensitive but a plain copied object is
+      // not: Windows stores PATH as "Path", so downstream reads of env.PATH would
+      // be undefined. Mirror only PATH/PATHEXT to upper-case keys — uppercasing
+      // every key could break case-sensitive variables spawned tools expect
+      // (GOBIN, GOPATH, ...).
+      if (process.platform === "win32") {
+        const upper = key.toUpperCase();
+        if (upper === "PATH" || upper === "PATHEXT") {
+          normalized[upper] = value;
+        }
+      }
     }
   }
   return normalized;
