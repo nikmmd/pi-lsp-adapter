@@ -1,6 +1,6 @@
 {
   "name": "pi-lsp-adapter",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pi extension that gives coding agents Language Server Protocol tools for diagnostics, hover, definitions, references, and symbol search",
   "author": "Nikmmd",
   "license": "MIT",
