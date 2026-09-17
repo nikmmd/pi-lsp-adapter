@@ -35,10 +35,10 @@ describe("LspPanel", () => {
     expect(panel.render(100).join("\n")).toContain("LSP");
 
     panel.handleInput("\r");
-    expect(actions[0]).toEqual({ type: "doctor", serverId: "gopls" });
+    expect(actions[0]).toEqual({ type: "doctor", serverId: "clangd" });
 
     panel.handleInput("i");
-    expect(actions[1]).toEqual({ type: "install", serverId: "gopls" });
+    expect(actions[1]).toEqual({ type: "install", serverId: "clangd" });
   });
 });
 

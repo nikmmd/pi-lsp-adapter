@@ -122,6 +122,7 @@ Built-in catalog entries currently include:
 | `yamlls`        | YAML                             | npm               |
 | `jsonls`        | JSON, JSONC                      | npm               |
 | `jdtls`         | Java                             | GitHub release    |
+| `clangd`        | C, C++                           | GitHub release    |
 
 You can override these definitions or add new server definitions in config.
 
