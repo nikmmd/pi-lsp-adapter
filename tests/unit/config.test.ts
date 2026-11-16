@@ -262,6 +262,29 @@ describe("loadLspConfig", () => {
     ]);
   });
 
+  it("deep-merges partial github install overrides so users can repin the clangd version", async () => {
+    await writeJson(getUserConfigPath(), {
+      servers: {
+        clangd: {
+          install: {
+            version: "23.0.0",
+          },
+        },
+      },
+    });
+
+    const result = await loadLspConfig({ cwd: projectRoot, projectRoot });
+
+    expect(result.warnings).toEqual([]);
+    expect(result.catalog.servers.clangd.install).toMatchObject({
+      type: "github",
+      version: "23.0.0",
+      platformTokens: { linux: "linux", darwin: "mac", win32: "windows" },
+      binPath: "bin/clangd",
+      bin: "clangd",
+    });
+  });
+
   it("allows trusted project config to override installMode and executable fields while keeping catalog key ids authoritative", async () => {
     await trustProject(projectRoot);
     await writeJson(getProjectConfigPath(projectRoot), {

@@ -15,6 +15,7 @@ export const SUPPORTED_LANGUAGE_SERVER_IDS = [
   "yamlls",
   "jsonls",
   "jdtls",
+  "clangd",
 ] as const;
 
 export type SupportedLanguageServerId = (typeof SUPPORTED_LANGUAGE_SERVER_IDS)[number];
@@ -44,6 +45,8 @@ export interface GithubInstallSpec extends BaseInstallSpec {
   version?: string;
   asset?: string;
   downloadUrl?: string;
+  platformTokens?: Record<string, string>;
+  binPath?: string;
   bin: string;
   stripComponents?: number;
 }
@@ -145,6 +148,8 @@ export const InstallSpecSchema = Type.Union([
     version: Type.Optional(Type.String()),
     asset: Type.Optional(Type.String()),
     downloadUrl: Type.Optional(Type.String()),
+    platformTokens: Type.Optional(StringRecordSchema),
+    binPath: Type.Optional(Type.String()),
     bin: Type.String(),
     stripComponents: Type.Optional(Type.Number()),
   }),

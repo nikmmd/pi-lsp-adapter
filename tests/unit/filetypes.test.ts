@@ -15,6 +15,14 @@ describe("detectFiletype", () => {
     ["package.json", "json"],
     ["settings.jsonc", "jsonc"],
     ["Main.java", "java"],
+    ["main.c", "c"],
+    ["util.h", "c"],
+    ["main.cpp", "cpp"],
+    ["main.cc", "cpp"],
+    ["main.cxx", "cpp"],
+    ["widget.hpp", "cpp"],
+    ["widget.hh", "cpp"],
+    ["widget.hxx", "cpp"],
   ])("maps %s to %s", (path, expected) => {
     expect(detectFiletype({ path })).toBe(expected);
   });

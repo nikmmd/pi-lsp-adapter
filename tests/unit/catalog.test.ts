@@ -3,7 +3,7 @@ import { BUILTIN_CATALOG, BUILTIN_FILETYPE_RULES } from "../../src/registry/buil
 import { SUPPORTED_LANGUAGE_SERVER_IDS } from "../../src/registry/schema.js";
 
 describe("BUILTIN_CATALOG", () => {
-  it("contains the seven bundled server definitions", () => {
+  it("contains the eight bundled server definitions", () => {
     expect(Object.keys(BUILTIN_CATALOG.servers).sort()).toEqual([...SUPPORTED_LANGUAGE_SERVER_IDS].sort());
   });
 

@@ -271,6 +271,48 @@ describe("installer backends", () => {
     );
   });
 
+  it("flattens the clangd zip wrapper directory and links the nested binary", async () => {
+    const server = BUILTIN_CATALOG.servers.clangd;
+    const packageDir = join(getPackagesDir(), server.id);
+    const result = await installServerBackend(server, undefined, {
+      now: new Date("2026-05-28T00:00:00.000Z"),
+      env: { PATH: "" },
+      downloadFile: async (url, destinationPath) => {
+        // Verifies the clangd platformTokens asset naming (linux/mac/windows, not the default
+        // rust-analyzer-style triples) and the pinned-version download URL in one place.
+        expect(url).toMatch(
+          /^https:\/\/github\.com\/clangd\/clangd\/releases\/download\/22\.1\.6\/clangd-(linux|mac|windows)-22\.1\.6\.zip$/,
+        );
+        await writeFile(destinationPath, "archive", "utf8");
+      },
+      runner: async (invocation) => {
+        expect(invocation.command).toBe("unzip");
+        // Reproduce what a real clangd_<version>.zip extracts to: a single top-level
+        // wrapper directory containing bin/clangd and lib/clang resources.
+        const wrapperDir = join(packageDir, "clangd_22.1.6");
+        await mkdir(join(wrapperDir, "bin"), { recursive: true });
+        await mkdir(join(wrapperDir, "lib", "clang"), { recursive: true });
+        const archiveBin = join(wrapperDir, "bin", "clangd");
+        await writeFile(archiveBin, "#!/bin/sh\nexit 0\n", "utf8");
+        await chmod(archiveBin, 0o755);
+        return { code: 0, stdout: "ok", stderr: "" };
+      },
+    });
+
+    expect(result.metadata).toMatchObject({
+      installer: "github",
+      requestedVersion: "22.1.6",
+      resolvedCommand: [join(getBinDir(), "clangd")],
+      packageDir,
+      binDir: getBinDir(),
+    });
+    // The wrapper directory was hoisted away by the zip extraction step.
+    await expect(readdir(packageDir)).resolves.toEqual(expect.arrayContaining(["bin", "lib"]));
+    await expect(readdir(packageDir)).resolves.not.toContain("clangd_22.1.6");
+    await expect(readFile(join(packageDir, "bin", "clangd"), "utf8")).resolves.toContain("#!/bin/sh");
+    await expect(readFile(join(getBinDir(), "clangd"), "utf8")).resolves.toContain("#!/bin/sh");
+  });
+
   it("normalizes raw GitHub executable assets to the configured binary name", async () => {
     const result = await installServerBackend(BUILTIN_CATALOG.servers["rust-analyzer"], undefined, {
       now: new Date("2026-05-28T00:00:00.000Z"),

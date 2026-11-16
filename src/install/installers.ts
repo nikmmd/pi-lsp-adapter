@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, chmod, copyFile, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, copyFile, mkdir, readdir, rename, rm, rmdir, symlink, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -261,7 +261,8 @@ async function installGithubServer(
     : server.command;
 
   if (needsManagedBin) {
-    const packageBin = await prepareGithubExecutable(packageDir, install.bin, extractedPath, server.id);
+    const archiveBin = install.binPath ?? install.bin;
+    const packageBin = await prepareGithubExecutable(packageDir, archiveBin, extractedPath, server.id);
     await linkExecutable(packageBin, resolvedBin, server.id);
   }
 
@@ -421,7 +422,8 @@ export function resolveGithubAssetName(install: GithubInstallSpec, requestedVers
     throw new ConfigError(`GitHub installer for ${install.repo} requires a version because asset uses {version}.`);
   }
 
-  return install.asset.replaceAll("{version}", version ?? "latest").replaceAll("{platform}", getGithubPlatformToken());
+  const platformToken = install.platformTokens?.[process.platform] ?? getGithubPlatformToken();
+  return install.asset.replaceAll("{version}", version ?? "latest").replaceAll("{platform}", platformToken);
 }
 
 export function buildGithubAssetUrl(
@@ -453,6 +455,11 @@ async function extractGithubAsset(
 
   if (archivePath.endsWith(".zip")) {
     await runChecked(runner, { command: "unzip", args: ["-q", archivePath, "-d", packageDir] });
+    // `unzip` has no --strip-components, so emulate stripComponents=1 by hoisting the
+    // contents of a single top-level wrapper directory (for example clangd_<version>/).
+    if (stripComponents > 0) {
+      await flattenSingleTopLevelDirectory(packageDir);
+    }
     return undefined;
   }
 
@@ -481,6 +488,17 @@ export function getGithubPlatformToken(platform: string = process.platform, arch
   }
 
   return `${platform}-${arch}`;
+}
+
+async function flattenSingleTopLevelDirectory(packageDir: string): Promise<void> {
+  const entries = await readdir(packageDir, { withFileTypes: true });
+  if (entries.length !== 1 || !entries[0]!.isDirectory()) return;
+
+  const wrapperDir = join(packageDir, entries[0]!.name);
+  for (const entry of await readdir(wrapperDir, { withFileTypes: true })) {
+    await rename(join(wrapperDir, entry.name), join(packageDir, entry.name));
+  }
+  await rmdir(wrapperDir);
 }
 
 async function defaultDownloadFile(url: string, destinationPath: string): Promise<void> {
