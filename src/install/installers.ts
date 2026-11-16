@@ -1,8 +1,10 @@
-import { constants } from "node:fs";
-import { access, chmod, copyFile, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { constants, createReadStream, createWriteStream } from "node:fs";
+import { access, chmod, copyFile, mkdir, open, rm, symlink, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { pipeline } from "node:stream/promises";
+import { createGunzip } from "node:zlib";
 import { getBinDir, getLogsDir, getPackagesDir } from "../config/paths.js";
 import { messageFromError, normalizeProcessEnv } from "../util/helpers.js";
 import type {
@@ -402,6 +404,17 @@ async function assertExecutable(path: string, originalCommand: string, serverId:
   }
 }
 
+async function isGzipStream(path: string): Promise<boolean> {
+  const handle = await open(path, "r");
+
+  try {
+    const { buffer, bytesRead } = await handle.read(Buffer.alloc(2), 0, 2, 0);
+    return bytesRead === 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+  } finally {
+    await handle.close();
+  }
+}
+
 async function isExecutable(path: string): Promise<boolean> {
   try {
     await access(path, constants.X_OK);
@@ -454,6 +467,16 @@ async function extractGithubAsset(
   if (archivePath.endsWith(".zip")) {
     await runChecked(runner, { command: "unzip", args: ["-q", archivePath, "-d", packageDir] });
     return undefined;
+  }
+
+  // Bare ".gz" assets (for example rust-analyzer's
+  // rust-analyzer-{platform}.gz) ship a single gzip-compressed binary and need
+  // to be inflated before they can be used as an executable.
+  if (archivePath.endsWith(".gz") && (await isGzipStream(archivePath))) {
+    const decompressedPath = archivePath.slice(0, -3);
+    await pipeline(createReadStream(archivePath), createGunzip(), createWriteStream(decompressedPath));
+    await chmod(decompressedPath, 0o755).catch(() => undefined);
+    return decompressedPath;
   }
 
   const destination = join(packageDir, basename(archivePath));
