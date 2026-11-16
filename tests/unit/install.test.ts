@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -269,6 +270,45 @@ describe("installer backends", () => {
     expect(buildGithubAssetUrl(install, asset, install.version)).toBe(
       "https://download.eclipse.org/jdtls/milestones/1.58.0/jdt-language-server-1.58.0-202604151538.tar.gz",
     );
+  });
+
+  it("inflates bare .gz GitHub assets before linking the binary", async () => {
+    const payload = "#!/bin/sh\nexit 0\n";
+
+    const result = await installServerBackend(BUILTIN_CATALOG.servers["rust-analyzer"], undefined, {
+      now: new Date("2026-05-28T00:00:00.000Z"),
+      env: { PATH: "" },
+      downloadFile: async (_url, destinationPath) => {
+        await writeFile(destinationPath, gzipSync(payload));
+      },
+    });
+
+    expect(result.metadata).toMatchObject({
+      installer: "github",
+      resolvedCommand: [join(getBinDir(), "rust-analyzer")],
+      packageDir: join(getPackagesDir(), "rust-analyzer"),
+      binDir: getBinDir(),
+    });
+
+    const installedBinary = await readFile(join(getPackagesDir(), "rust-analyzer", "rust-analyzer"));
+
+    expect(installedBinary.toString("utf8")).toBe(payload);
+    // A gzip container is not executable; the lockfile must only ever record a
+    // usable binary.
+    expect(installedBinary[0] === 0x1f && installedBinary[1] === 0x8b).toBe(false);
+    await expect(readFile(join(getBinDir(), "rust-analyzer"), "utf8")).resolves.toContain("#!/bin/sh");
+  });
+
+  it("reports a corrupt .gz GitHub asset instead of copying it as a binary", async () => {
+    await expect(
+      installServerBackend(BUILTIN_CATALOG.servers["rust-analyzer"], undefined, {
+        env: { PATH: "" },
+        downloadFile: async (_url, destinationPath) => {
+          // Valid gzip magic bytes followed by a truncated stream.
+          await writeFile(destinationPath, Buffer.from([0x1f, 0x8b, 0x08, 0x00]));
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   it("normalizes raw GitHub executable assets to the configured binary name", async () => {
